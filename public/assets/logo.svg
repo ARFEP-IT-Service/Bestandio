@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Bestandio">
+  <title>Bestandio</title>
+  <g transform="rotate(-10 32 32)">
+    <!-- Asset tag with bevelled corners and a punched hole (transparent via even-odd). -->
+    <path fill="#FFD23F" fill-rule="evenodd" d="M19 13h33a7 7 0 0 1 7 7v24a7 7 0 0 1-7 7H19L6 38.5v-13zM15.5 32a4 4 0 1 0 8 0a4 4 0 1 0-8 0z"/>
+    <!-- Code blocks: a nod to the QR code on every label. -->
+    <rect x="30" y="20" width="9" height="9" rx="2" fill="#13202B"/>
+    <rect x="42" y="20" width="9" height="9" rx="2" fill="#13202B"/>
+    <rect x="30" y="35" width="9" height="9" rx="2" fill="#13202B"/>
+    <rect x="42" y="35" width="9" height="9" rx="2" fill="#0E7C86"/>
+  </g>
+</svg>

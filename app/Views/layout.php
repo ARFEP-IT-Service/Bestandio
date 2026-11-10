@@ -2,6 +2,18 @@
 use Bestandio\Core\Auth;
 use Bestandio\Core\I18n;
 use Bestandio\Core\Request;
+
+$path = Request::path();
+$nav = [
+    ['/devices', 'nav.devices', 'view'],
+    ['/scan', 'nav.scan', 'view'],
+    ['/categories', 'nav.categories', 'view'],
+    ['/locations', 'nav.locations', 'view'],
+    ['/import', 'nav.import', 'import'],
+    ['/users', 'nav.users', 'users'],
+    ['/settings', 'nav.settings', 'settings'],
+    ['/account', 'nav.account', 'view'],
+];
 ?>
 <!DOCTYPE html>
 <html lang="<?= e($lang) ?>">
@@ -11,35 +23,18 @@ use Bestandio\Core\Request;
 <meta name="color-scheme" content="light dark">
 <meta name="referrer" content="same-origin">
 <title><?= e($title) ?> · Bestandio</title>
+<link rel="icon" type="image/svg+xml" href="<?= e(asset('logo.svg')) ?>">
 <link rel="stylesheet" href="<?= e(asset('app.css')) ?>">
 <script src="<?= e(asset('app.js')) ?>" defer></script>
 </head>
-<body>
+<body class="<?= e($user === null ? 'is-guest' : 'is-app') ?>">
 <header class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="<?= e(url('/')) ?>">Bestandio</a>
-    <?php if ($user !== null): ?>
-    <nav class="mainnav" aria-label="<?= e(t('nav.label')) ?>">
-      <a href="<?= e(url('/devices')) ?>"><?= e(t('nav.devices')) ?></a>
-      <a href="<?= e(url('/categories')) ?>"><?= e(t('nav.categories')) ?></a>
-      <a href="<?= e(url('/locations')) ?>"><?= e(t('nav.locations')) ?></a>
-      <a href="<?= e(url('/scan')) ?>"><?= e(t('nav.scan')) ?></a>
-      <?php if (Auth::can('import')): ?>
-      <a href="<?= e(url('/import')) ?>"><?= e(t('nav.import')) ?></a>
-      <?php endif; ?>
-      <?php if (Auth::can('users')): ?>
-      <a href="<?= e(url('/users')) ?>"><?= e(t('nav.users')) ?></a>
-      <?php endif; ?>
-      <?php if (Auth::can('settings')): ?>
-      <a href="<?= e(url('/settings')) ?>"><?= e(t('nav.settings')) ?></a>
-      <?php endif; ?>
-      <a href="<?= e(url('/account')) ?>"><?= e(t('nav.account')) ?></a>
-    </nav>
-    <?php endif; ?>
+    <a class="brand" href="<?= e(url('/')) ?>"><img class="brand-logo" src="<?= e(asset('logo.svg')) ?>" width="34" height="34" alt=""><span>Bestandio</span></a>
     <div class="topbar-tools">
       <form method="post" action="<?= e(url('/lang')) ?>" class="langform">
         <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
-        <input type="hidden" name="back" value="<?= e(Request::path()) ?>">
+        <input type="hidden" name="back" value="<?= e($path) ?>">
         <label class="visually-hidden" for="lang-select"><?= e(t('nav.language')) ?></label>
         <select id="lang-select" name="lang" data-autosubmit>
           <?php foreach (I18n::LANGS as $code): ?>
@@ -51,10 +46,19 @@ use Bestandio\Core\Request;
       <?php if ($user !== null): ?>
       <form method="post" action="<?= e(url('/logout')) ?>">
         <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
-        <button type="submit" class="btn-small" title="<?= e($user['username']) ?>"><?= e(t('nav.logout')) ?></button>
+        <button type="submit" class="btn-small btn-ghost" title="<?= e($user['username']) ?>"><?= e(t('nav.logout')) ?></button>
       </form>
       <?php endif; ?>
     </div>
+    <?php if ($user !== null): ?>
+    <nav class="mainnav" aria-label="<?= e(t('nav.label')) ?>">
+      <?php foreach ($nav as [$href, $key, $perm]): ?>
+      <?php if (Auth::can($perm)): ?>
+      <a href="<?= e(url($href)) ?>"<?php if ($path === $href || str_starts_with($path, $href . '/')): ?> aria-current="page"<?php endif; ?>><?= e(t($key)) ?></a>
+      <?php endif; ?>
+      <?php endforeach; ?>
+    </nav>
+    <?php endif; ?>
   </div>
 </header>
 <main class="container">

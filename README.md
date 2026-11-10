@@ -1,3 +1,5 @@
+<img src="public/assets/logo.svg" width="72" height="72" alt="Bestandio-Logo">
+
 # Bestandio
 
 [Deutsch](#deutsch) | [English](#english)

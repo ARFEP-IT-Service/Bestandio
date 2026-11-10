@@ -38,7 +38,10 @@ $display = static function (string $field, ?string $value): string {
 </div>
 
 <div class="device-top">
-  <img class="device-qr" src="<?= e(url('/devices/' . $device['id'] . '/qr')) ?>" width="132" height="132" alt="<?= e(t('device.qr_alt', ['code' => $device['code']])) ?>">
+  <figure class="device-id">
+    <img class="device-qr" src="<?= e(url('/devices/' . $device['id'] . '/qr')) ?>" width="132" height="132" alt="<?= e(t('device.qr_alt', ['code' => $device['code']])) ?>">
+    <figcaption class="code-tag"><?= e($device['code']) ?></figcaption>
+  </figure>
   <dl class="details panel">
     <?php foreach ($fields as $f): ?>
     <div>
