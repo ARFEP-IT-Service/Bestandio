@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Bestandio\Controllers;
 
+use Bestandio\Core\Auth;
 use Bestandio\Core\Request;
 use Bestandio\Core\Session;
 use Bestandio\Models\NamedList;
@@ -58,6 +59,8 @@ final class ListController extends Controller
             'title' => t('list.' . $kind),
             'kind'  => $kind,
             'items' => (new NamedList($kind))->all(),
+            // Row shown as rename form (?edit=ID), only for users who may edit lists.
+            'editId' => Auth::can('lists') ? (int) Request::query('edit') : 0,
         ]);
     }
 

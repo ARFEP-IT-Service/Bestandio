@@ -348,21 +348,38 @@ details.panel .table-wrap { box-shadow: none; }
 .inline-form { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin: 0; }
 .inline-form label { margin: 0; }
 .inline-form input[type="text"] { flex: 1 1 12rem; width: auto; }
-.itemlist { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.6rem; }
-.itemlist li {
-  display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
-  padding: 0.65rem 0.85rem; box-shadow: var(--shadow);
+/* Categories and locations: one calm card, rows separated by hairlines. */
+.count-pill {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; height: 1.75rem; padding: 0 0.55rem;
+  border-radius: 999px; background: var(--lagoon-soft); color: var(--lagoon);
+  font-family: var(--font-body); font-size: 0.9rem; font-weight: 700; letter-spacing: 0;
 }
-.itemlist li > .inline-form { flex: 1 1 18rem; }
-.itemlist form { margin: 0; }
-.itemlist .muted {
-  flex: none; font-size: 0.8rem; font-weight: 600; padding: 0.3rem 0.65rem; border-radius: 999px;
-  background: var(--surface-2); border: 1px solid var(--line);
+.add-form { display: flex; gap: 0.5rem; margin: 0 0 1rem; max-width: 40rem; }
+.add-form input { flex: 1; min-width: 0; }
+.namelist {
+  list-style: none; margin: 0; padding: 0; max-width: 40rem;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow);
+  overflow: hidden;
 }
-/* The add form is a card on its own; keep the card spacing that .inline-form resets. */
-.panel.inline-form { margin-bottom: 1.5rem; }
-.panel.inline-form label { margin-right: 0.25rem; }
+.namelist-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem;
+  min-height: 3.5rem; padding: 0.5rem 0.6rem 0.5rem 1.1rem; border-bottom: 1px solid var(--line);
+  transition: background-color 0.12s;
+}
+.namelist-row:last-child { border-bottom: 0; }
+.namelist-row:hover { background: var(--surface-2); }
+.namelist-row.is-editing { background: var(--lagoon-soft); }
+.namelist-name { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+.namelist-count { flex: none; font-size: 0.85rem; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.namelist-count.is-zero { opacity: 0.7; }
+.namelist-actions { flex: none; display: flex; gap: 0.15rem; align-items: center; }
+.namelist-actions form { margin: 0; }
+.namelist-row:not(:hover):not(:focus-within) .namelist-actions { opacity: 0.65; }
+@media (hover: none) { .namelist-row .namelist-actions { opacity: 1; } }
+.rename-form { flex: 1; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0; }
+.rename-form input { flex: 1 1 12rem; width: auto; min-height: 2.4rem; }
+.btn-ghost-danger { color: var(--bad); }
+.btn-ghost-danger:hover { background: var(--bad-soft); border-color: transparent; color: var(--bad); }
 
 .label-bar { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center; justify-content: space-between; margin: 0 0 0.75rem; }
 .label-bar label { margin: 0; }
