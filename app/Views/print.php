@@ -8,7 +8,7 @@
 <link rel="manifest" href="<?= e(url('/manifest.json')) ?>">
 <link rel="icon" type="image/svg+xml" href="<?= e(asset('logo.svg')) ?>">
 <link rel="stylesheet" href="<?= e(asset('print.css')) ?>">
-<link rel="stylesheet" href="<?= e(url('/labels/style', ['mode' => $mode])) ?>">
+<link rel="stylesheet" href="<?= e(url('/labels/style', ['tpl' => $tpl['id']])) ?>">
 <script src="<?= e(asset('app.js')) ?>" defer></script>
 </head>
 <body class="print-page print-<?= e($mode) ?>">

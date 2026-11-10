@@ -22,6 +22,7 @@ use Bestandio\Core\Session;
 use Bestandio\Core\Router;
 use Bestandio\Models\Device;
 use Bestandio\Models\History;
+use Bestandio\Models\LabelTemplate;
 use Bestandio\Models\LoginThrottle;
 use Bestandio\Models\NamedList;
 use Bestandio\Models\ScanImport;
@@ -32,6 +33,11 @@ use Bestandio\Models\User;
 $tests = [];
 $test = static function (string $name, callable $fn) use (&$tests): void {
     $tests[] = [$name, $fn];
+};
+// DB tests are always registered; without a test database they are counted as skipped, not hidden.
+$dbTests = [];
+$dbTest = static function (string $name, callable $fn) use (&$dbTests): void {
+    $dbTests[] = [$name, $fn];
 };
 $assert = static function (bool $cond, string $msg = 'assertion failed'): void {
     if (!$cond) {
@@ -144,7 +150,7 @@ $test('Migrator splits SQL files', function () use ($assert) {
     $parts = Migrator::split("-- comment\nCREATE TABLE a (x INT);\n\nCREATE TABLE b (\n y INT\n);\n");
     $assert(count($parts) === 2 && str_starts_with($parts[1], 'CREATE TABLE b'));
     $assert(count(Migrator::split((string) file_get_contents(BESTANDIO_ROOT . '/migrations/001_init.sql'))) === 6);
-    $assert(array_keys(Migrator::files()) === ['001', '002', '003', '004', '005']);
+    $assert(array_keys(Migrator::files()) === ['001', '002', '003', '004', '005', '006']);
 });
 
 $test('Validation helpers', function () use ($assert) {
@@ -303,23 +309,45 @@ $test('Session expires after 2 h idle and 12 h absolute', function () use ($asse
     $_SESSION = [];
 });
 
-$test('Label templates: sizes, dpi and QR module rounding to whole printer dots', function () use ($assert) {
-    $base = ['label_template' => 'custom', 'single_width' => 62.0, 'single_height' => 29.0, 'dpi' => 203];
-    $assert(Settings::singleSize(['label_template' => 'dymo_54x101'] + $base) === [101.0, 54.0, 300]);
-    $assert(Settings::singleSize(['label_template' => 'zebra_103x199'] + $base) === [103.0, 199.0, 203]);
-    $assert(Settings::singleSize($base) === [62.0, 29.0, 203]);
-    foreach ([[101.0, 54.0, 300, false], [103.0, 199.0, 203, true], [62.0, 29.0, 203, false], [70.0, 36.0, 600, false]] as [$w, $h, $dpi, $vertical]) {
-        $l = Bestandio\Controllers\LabelController::layout($w, $h, $dpi);
-        $dotsPerModule = $l['qr'] / 29 * $dpi / 25.4;
-        $assert(abs($dotsPerModule - round($dotsPerModule)) < 1e-9 && $dotsPerModule >= 1, "whole dots for {$w}x{$h}@{$dpi}: $dotsPerModule");
-        $assert($l['vertical'] === $vertical, "orientation {$w}x{$h}");
-        $assert($l['qr'] <= min($w, $h), 'QR fits');
+$test('Label templates: page sizes, dpi and QR module rounding to whole printer dots', function () use ($assert) {
+    $b = LabelTemplate::BUILTIN;
+    $assert(LabelTemplate::pageSize($b['single_54x101']) === [101.0, 54.0], 'landscape turns the page');
+    $assert(LabelTemplate::pageSize($b['single_103x199']) === [103.0, 199.0]);
+    $assert(LabelTemplate::pageSize($b['sheet_a4_3x8']) === [210.0, 297.0] && LabelTemplate::labelSize($b['sheet_a4_3x8']) === [70.0, 36.0]);
+    $assert(LabelTemplate::pageSize(['orientation' => 'landscape'] + $b['sheet_a4_3x8']) === [297.0, 210.0]);
+    $assert(LabelTemplate::perSheet($b['sheet_a4_3x8']) === 24 && LabelTemplate::perSheet($b['single_50x25']) === 1);
+    foreach ($b as $key => $tpl) {
+        [$w, $h] = LabelTemplate::labelSize($tpl);
+        $l = Bestandio\Controllers\LabelController::layout($w, $h, $tpl['dpi']);
+        $dotsPerModule = $l['qr'] / 29 * $tpl['dpi'] / 25.4;
+        $assert(abs($dotsPerModule - round($dotsPerModule)) < 1e-9 && $dotsPerModule >= 1, "whole dots for $key: $dotsPerModule");
+        $assert($l['qr'] <= min($w, $h), "QR fits on $key");
+        $assert($l['vertical'] === ($h > $w * 1.15), "orientation $key");
     }
-    $defaults = array_map(static fn ($f) => (string) $f[0], Settings::FIELDS);
-    [, $err] = Settings::validate(['label_template' => 'unknown', 'dpi' => '50'] + $defaults);
-    $assert(isset($err['label_template'], $err['dpi']), json_encode($err));
-    [, $err] = Settings::validate(['label_template' => 'zebra_103x199', 'dpi' => '300'] + $defaults);
-    $assert($err === [], json_encode($err));
+    $assert(abs(Bestandio\Controllers\LabelController::layout(101.0, 54.0, 300)['qr'] - 46.651) < 0.001, 'QR on 54x101 landscape');
+});
+
+$test('Label templates: validation, fit on the sheet, built-in names', function () use ($assert) {
+    $in = static fn (array $t): array => array_map(static fn ($v) => is_float($v) || is_int($v) ? (string) $v : $v, $t);
+    [$v, $err] = LabelTemplate::validate(['name' => 'Bogen'] + $in(LabelTemplate::BUILTIN['sheet_a4_3x8']));
+    $assert($err === [], 'built-in sheet is valid: ' . json_encode($err));
+    $assert($v['sheet_cols'] === 3 && $v['width_mm'] === 70.0 && $v['margin_top'] === 4.5);
+    [, $err] = LabelTemplate::validate(['name' => 'x', 'width_mm' => '71'] + $in(LabelTemplate::BUILTIN['sheet_a4_3x8']));
+    $assert(($err['width_mm'] ?? '') === 'tpl.error.too_wide', json_encode($err));
+    [, $err] = LabelTemplate::validate(['name' => 'x', 'sheet_rows' => '9'] + $in(LabelTemplate::BUILTIN['sheet_a4_3x8']));
+    $assert(($err['height_mm'] ?? '') === 'tpl.error.too_high', json_encode($err));
+    [, $err] = LabelTemplate::validate(['name' => 'x', 'orientation' => 'landscape', 'sheet_cols' => '4', 'width_mm' => '74.25', 'height_mm' => '25'] + $in(LabelTemplate::BUILTIN['sheet_a4_3x8']));
+    $assert($err === [], 'landscape A4 is 297 mm wide: ' . json_encode($err));
+    [$v, $err] = LabelTemplate::validate(['name' => 'Rolle', 'kind' => 'single', 'width_mm' => '62,5', 'height_mm' => '29', 'dpi' => '203', 'orientation' => 'portrait', 'sheet_cols' => '99']);
+    $assert($err === [] && $v['width_mm'] === 62.5 && $v['sheet_cols'] === null, 'single: comma decimal, sheet fields ignored');
+    [, $err] = LabelTemplate::validate(['name' => '', 'kind' => 'other', 'width_mm' => '5', 'height_mm' => 'x', 'dpi' => '50']);
+    $assert(isset($err['name'], $err['kind'], $err['width_mm'], $err['height_mm'], $err['dpi']), json_encode($err));
+    $assert(LabelTemplate::displayName(['builtin_key' => 'sheet_a4_3x8'] + LabelTemplate::BUILTIN['sheet_a4_3x8']) === 'A4 3 × 8 · 70 × 36 mm');
+    $assert(str_starts_with(LabelTemplate::displayName(['builtin_key' => 'single_54x101'] + LabelTemplate::BUILTIN['single_54x101']), '54 × 101 mm, '));
+    $assert(LabelTemplate::displayName(['builtin_key' => null, 'name' => '<b>Eigen</b>']) === '<b>Eigen</b>');
+    $assert(LabelTemplate::deleteBlocker(['builtin_key' => 'single_50x25', 'is_default' => false]) === 'tpl.error.builtin');
+    $assert(LabelTemplate::deleteBlocker(['builtin_key' => null, 'is_default' => true]) === 'tpl.error.default');
+    $assert(LabelTemplate::deleteBlocker(['builtin_key' => null, 'is_default' => false]) === null);
 });
 
 $test('CSV separator follows the UI language', function () use ($assert) {
@@ -327,16 +355,12 @@ $test('CSV separator follows the UI language', function () use ($assert) {
     $assert(Csv::line(['a', 'b'], ',') === "\"a\",\"b\"\r\n");
 });
 
-$test('Label settings: validation and label size', function () use ($assert) {
-    [$v, $err] = Settings::validate(['company_name' => 'ARFEP', 'sheet_cols' => '3', 'sheet_rows' => '8', 'sheet_margin_top' => '4,5',
-        'sheet_margin_bottom' => '4.5', 'sheet_margin_left' => '0', 'sheet_margin_right' => '0', 'sheet_gap_x' => '0', 'sheet_gap_y' => '0',
-        'single_width' => '62', 'single_height' => '29', 'label_template' => 'custom', 'dpi' => '203']);
-    $assert($err === [], 'valid settings: ' . json_encode($err));
-    $assert(Settings::labelSize($v) === [70.0, 36.0]);
-    [, $err] = Settings::validate(['sheet_cols' => '2.5', 'sheet_rows' => '99'] + $v);
-    $assert(isset($err['sheet_cols'], $err['sheet_rows']));
-    [, $err] = Settings::validate(['sheet_cols' => '10', 'sheet_rows' => '30'] + array_map('strval', $v));
-    $assert(($err['sheet_cols'] ?? '') === 'settings.error.too_small');
+$test('Settings: company name only, length checked', function () use ($assert) {
+    $assert(array_keys(Settings::FIELDS) === ['company_name']);
+    [$v, $err] = Settings::validate(['company_name' => '  ARFEP  ', 'sheet_cols' => '3']);
+    $assert($err === [] && $v === ['company_name' => 'ARFEP']);
+    [, $err] = Settings::validate(['company_name' => str_repeat('x', 101)]);
+    $assert(isset($err['company_name']));
 });
 
 $validScan = [
@@ -410,179 +434,260 @@ $dbEnv = [
 ];
 $withDb = $dbEnv['host'] && $dbEnv['name'] && $dbEnv['user'];
 
-if ($withDb) {
-    $test('DB: migrations from scratch', function () use ($assert, $dbEnv) {
-        $pdo = Db::connect($dbEnv);
-        $assert(Db::versionSupported($pdo), 'db version');
-        $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-        foreach ($pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $table) {
-            $pdo->exec('DROP TABLE `' . str_replace('`', '', $table) . '`');
-        }
-        $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
-        Db::set($pdo);
-        Config::set(['db' => $dbEnv, 'app' => []]);
-        // First only 001 with existing devices, then the rest: the devices must receive a code.
-        $tmp = sys_get_temp_dir() . '/bestandio-mig-' . bin2hex(random_bytes(4));
-        mkdir($tmp);
-        copy(BESTANDIO_ROOT . '/migrations/001_init.sql', $tmp . '/001_init.sql');
-        $assert((new Migrator($pdo, $tmp))->migrate() === ['001']);
-        unlink($tmp . '/001_init.sql');
-        rmdir($tmp);
-        $pdo->exec("INSERT INTO categories (name) VALUES ('Alt')");
-        $pdo->exec("INSERT INTO locations (name) VALUES ('Alt')");
-        $pdo->exec("INSERT INTO devices (inventory_no, category_id, location_id) VALUES ('OLD-1', 1, 1), ('OLD-2', 1, 1)");
-        $m = new Migrator($pdo);
-        $assert($m->migrate() === ['002', '003', '004', '005'], 'remaining migrations');
-        $assert($m->migrate() === [] && $m->pending() === []);
-        $assert(count($pdo->query('SHOW TABLES')->fetchAll()) === 9);
-        $codes = $pdo->query('SELECT code FROM devices')->fetchAll(PDO::FETCH_COLUMN);
-        $assert(count($codes) === 2 && DeviceCode::valid($codes[0]) && DeviceCode::valid($codes[1]) && $codes[0] !== $codes[1], 'codes for existing devices');
-        $pdo->exec('DELETE FROM devices');
-        $pdo->exec('DELETE FROM categories');
-        $pdo->exec('DELETE FROM locations');
-        $pdo->exec('ALTER TABLE categories AUTO_INCREMENT = 1');
-        $pdo->exec('ALTER TABLE locations AUTO_INCREMENT = 1');
-    });
-
-    $test('DB: users and login throttle', function () use ($assert) {
-        $id = User::create('admin', 'correct horse battery', 'admin');
-        $u = User::findByUsername('ADMIN');
-        $assert($u !== null && (int) $u['id'] === $id && password_verify('correct horse battery', $u['password_hash']));
-        $assert(User::activeAdmins() === 1);
-        $assert(!LoginThrottle::blocked('admin', '10.0.0.1'));
-        for ($i = 0; $i < LoginThrottle::MAX_PER_USER; $i++) {
-            LoginThrottle::fail('admin', '10.0.0.1');
-        }
-        $assert(LoginThrottle::blocked('Admin', '10.0.0.2'), 'user block');
-        LoginThrottle::clear('admin');
-        $assert(!LoginThrottle::blocked('admin', '10.0.0.3'));
-    });
-
-    $test('DB: devices, history, duplicates, search', function () use ($assert) {
-        $cats = new NamedList('categories');
-        $locs = new NamedList('locations');
-        $c1 = $cats->create('Laptop');
-        $c2 = $cats->create('Drucker');
-        $l1 = $locs->create('Büro 1');
-        $uid = (int) User::findByUsername('admin')['id'];
-
-        $d = Device::fromInput(['inventory_no' => 'INV-001', 'category_id' => (string) $c1, 'location_id' => (string) $l1,
-            'status' => 'in_use', 'manufacturer' => 'Lenovo', 'model' => 'T14', 'serial_no' => 'SN1', 'purchase_date' => '2026-01-15']);
-        $assert(Device::validate($d) === [], 'valid device');
-        $id = Device::create($d, $uid);
-        $assert(count(History::forDevice($id)) === 1);
-
-        $dup = Device::fromInput(['inventory_no' => 'INV-001', 'category_id' => (string) $c1, 'location_id' => (string) $l1, 'status' => 'stock', 'serial_no' => 'SN1']);
-        $assert((Device::validate($dup)['inventory_no'] ?? '') === 'device.error.inventory_taken');
-        $assert(Device::serialDuplicates('SN1') === ['INV-001'] && Device::serialDuplicates('SN1', $id) === []);
-
-        $bad = Device::fromInput(['inventory_no' => '', 'category_id' => '999', 'location_id' => '0', 'status' => 'x', 'purchase_date' => '2026-13-01']);
-        $assert(array_keys(Device::validate($bad)) === ['inventory_no', 'category_id', 'location_id', 'status', 'purchase_date']);
-
-        $d2 = $d;
-        $d2['category_id'] = $c2;
-        $d2['status'] = 'repair';
-        $d2['note'] = 'Display';
-        $assert(Device::update($id, $d2, $uid) === 3);
-        $h = History::forDevice($id);
-        $fields = array_column($h, 'field');
-        sort($fields);
-        $assert($fields === ['_created', 'category', 'note', 'status'], implode(',', $fields));
-        $catRow = array_values(array_filter($h, fn ($r) => $r['field'] === 'category'))[0];
-        $assert($catRow['old_value'] === 'Laptop' && $catRow['new_value'] === 'Drucker' && $catRow['username'] === 'admin');
-        $assert(Device::update($id, $d2, $uid) === 0, 'no-op update');
-
-        Device::create(Device::fromInput(['inventory_no' => 'INV-002', 'category_id' => (string) $c1, 'location_id' => (string) $l1, 'status' => 'stock', 'note' => '100%']), $uid);
-        $assert(Device::search(['q' => 'lenovo'], 'inventory_no', 'asc', 1, 25)['total'] === 1);
-        $assert(Device::search(['q' => '%'], 'inventory_no', 'asc', 1, 25)['total'] === 1, 'LIKE wildcard escaped');
-        $assert(Device::search(['status' => 'stock'], 'inventory_no', 'asc', 1, 25)['total'] === 1);
-        $assert(Device::search(['category' => $c1], 'inventory_no', 'asc', 1, 25)['total'] === 1);
-        $all = Device::search([], 'inventory_no', 'desc', 1, 1);
-        $assert($all['total'] === 2 && count($all['rows']) === 1 && $all['rows'][0]['inventory_no'] === 'INV-002');
-        $assert(count(iterator_to_array(Device::each([], 'bogus', 'x'))) === 2);
-
-        $assert(!$cats->delete($c1), 'in-use category must not be deletable');
-        $c3 = $cats->create('Leer');
-        $assert($cats->delete($c3) && $cats->nameExists('Laptop') && !$cats->nameExists('Leer'));
-    });
-
-    $test('DB: device code is set on create, unique and unchangeable', function () use ($assert) {
-        $dev = Db::one('SELECT * FROM devices ORDER BY id LIMIT 1');
-        $assert(DeviceCode::valid($dev['code']));
-        $assert(Device::findByCode($dev['code'])['id'] === $dev['id'] && Device::findByCode('ZZZZZZZZZZ') === null);
-        $assert(Device::update((int) $dev['id'], ['code' => 'AAAAAAAAAA', 'note' => 'x'], null) === 1);
-        $assert(Device::find((int) $dev['id'])['code'] === $dev['code'], 'code must not change');
-        $codes = Db::all('SELECT code FROM devices');
-        $assert(count(array_unique(array_column($codes, 'code'))) === count($codes));
-        $assert(Device::search(['q' => strtolower($dev['code'])], 'inventory_no', 'asc', 1, 25)['total'] === 1, 'search by code');
-    });
-
-    $test('DB: import preview stores nothing, confirm creates/updates with history', function () use ($assert, $validScan) {
-        $uid = (int) User::findByUsername('admin')['id'];
-        $before = (int) Db::value('SELECT COUNT(*) FROM devices') . '/' . Db::value('SELECT COUNT(*) FROM device_history');
-        [$data] = ScanImport::parse(json_encode($validScan));
-        $assert(Device::findByManufacturerSerial('lenovo ', ' pf4abc12') === [], 'no match yet');
-        $after = (int) Db::value('SELECT COUNT(*) FROM devices') . '/' . Db::value('SELECT COUNT(*) FROM device_history');
-        $assert($before === $after, 'parse must not store anything');
-
-        $base = Device::fromInput(['inventory_no' => 'IMP-1', 'category_id' => '1', 'location_id' => '1', 'status' => 'in_use']);
-        $id = ScanImport::applyCreate($base, $data, $uid);
-        $dev = Device::find($id);
-        $assert($dev['manufacturer'] === 'LENOVO' && $dev['cpu'] === 'Intel Core Ultra 7' && (int) $dev['ram_mb'] === 32768 && $dev['os_name'] === 'Windows 11 Pro');
-        $assert(count(Software::forDevice($id)) === 2);
-        $fields = array_column(History::forDevice($id), 'field');
-        sort($fields);
-        $assert($fields === ['_created', '_import', 'software'], implode(',', $fields));
-
-        $matches = Device::findByManufacturerSerial('lenovo', 'PF4ABC12');
-        $assert(count($matches) === 1 && (int) $matches[0]['id'] === $id, 'match case-insensitive');
-        $upd = array_replace_recursive($validScan, ['scanned_at' => '2026-11-10T20:30:00Z', 'hardware' => ['ram_mb' => 65536], 'os' => ['version' => '10.0.26200']]);
-        $upd['software'] = [['name' => 'Firefox', 'version' => '140']];
-        [$data2] = ScanImport::parse(json_encode($upd));
-        $diff = ScanImport::diff($matches[0], $data2);
-        $assert(array_keys($diff) === ['ram_mb', 'os_version', 'scanned_at', 'software'], implode(',', array_keys($diff)));
-        $assert($diff['ram_mb'] === ['32768', '65536'] && $diff['software'] === ['2', '1']);
-        ScanImport::applyUpdate($id, $data2, $uid);
-        $dev = Device::find($id);
-        $assert((int) $dev['ram_mb'] === 65536 && $dev['os_version'] === '10.0.26200' && $dev['inventory_no'] === 'IMP-1');
-        $h = History::forDevice($id);
-        $assert(count(array_filter($h, fn ($r) => $r['field'] === '_import')) === 2 && count(array_filter($h, fn ($r) => $r['field'] === 'ram_mb')) === 1);
-        $assert(count(Software::forDevice($id)) === 1);
-    });
-
-    $test('DB: matching order serial → UUID; same scan without serial twice gives one device', function () use ($assert) {
-        $uid = (int) User::findByUsername('admin')['id'];
-        $scan = ['format' => 'bestandio-scan', 'version' => 1, 'scanned_at' => '2026-11-10T20:00:00Z',
-            'hardware' => ['manufacturer' => 'System manufacturer', 'serial_number' => '', 'uuid' => '34F241AC-21F5-6F54-50CF-30C599831023', 'ram_mb' => 16384]];
-        [$d] = ScanImport::parse(json_encode($scan));
-        $assert(ScanImport::matches($d) === [], 'first time: no match');
-        $before = (int) Db::value('SELECT COUNT(*) FROM devices');
-        $id = ScanImport::applyCreate(Device::fromInput(['inventory_no' => 'UUID-1', 'category_id' => '1', 'location_id' => '1', 'status' => 'in_use']), $d, $uid);
-        [$d2] = ScanImport::parse(json_encode(array_replace_recursive($scan, ['hardware' => ['ram_mb' => 32768]])));
-        $m = ScanImport::matches($d2);
-        $assert(count($m) === 1 && (int) $m[0]['id'] === $id, 'second time: matched by UUID');
-        ScanImport::applyUpdate($id, $d2, $uid);
-        $assert((int) Db::value('SELECT COUNT(*) FROM devices') === $before + 1, 'exactly one device');
-        $assert((int) Device::find($id)['ram_mb'] === 32768 && Device::find($id)['uuid'] === '34F241AC-21F5-6F54-50CF-30C599831023');
-        // Serial number wins over UUID; a clone with the same UUID gives several matches to choose from.
-        $clone = ScanImport::applyCreate(Device::fromInput(['inventory_no' => 'UUID-2', 'category_id' => '1', 'location_id' => '1', 'status' => 'stock']), $d, $uid);
-        $assert(count(ScanImport::matches($d)) === 2, 'clones: user chooses');
-        [$d3] = ScanImport::parse(json_encode(array_replace_recursive($scan, ['hardware' => ['manufacturer' => 'LENOVO', 'serial_number' => 'PF4ABC12']])));
-        $bySerial = ScanImport::matches($d3);
-        $assert(count($bySerial) === 1 && $bySerial[0]['serial_no'] === 'PF4ABC12', 'serial before uuid');
-        $assert($clone > 0);
-    });
-
-    $test('DB: settings saved and read back', function () use ($assert) {
-        [$v] = Settings::validate(['company_name' => 'ARFEP <IT>'] + array_map('strval', Settings::all()));
-        Settings::save($v);
-        $s = Settings::all();
-        $assert($s['company_name'] === 'ARFEP <IT>' && (int) $s['sheet_cols'] === 3 && (float) $s['single_width'] === 62.0);
-    });
+// The DB tests drop every table: refuse anything that is not clearly a test database.
+if ($withDb && !str_contains(strtolower((string) $dbEnv['name']), 'test')) {
+    fwrite(STDERR, "Refusing to run DB tests: database name must contain 'test'.
+");
+    exit(2);
 }
+
+$dbTest('DB: migrations from scratch', function () use ($assert, $dbEnv) {
+    $pdo = Db::connect($dbEnv);
+    $assert(Db::versionSupported($pdo), 'db version');
+    $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
+    foreach ($pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN) as $table) {
+        $pdo->exec('DROP TABLE `' . str_replace('`', '', $table) . '`');
+    }
+    $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
+    Db::set($pdo);
+    Config::set(['db' => $dbEnv, 'app' => []]);
+    // First only 001 with existing devices, then the rest: the devices must receive a code.
+    $tmp = sys_get_temp_dir() . '/bestandio-mig-' . bin2hex(random_bytes(4));
+    mkdir($tmp);
+    copy(BESTANDIO_ROOT . '/migrations/001_init.sql', $tmp . '/001_init.sql');
+    $assert((new Migrator($pdo, $tmp))->migrate() === ['001']);
+    unlink($tmp . '/001_init.sql');
+    rmdir($tmp);
+    $pdo->exec("INSERT INTO categories (name) VALUES ('Alt')");
+    $pdo->exec("INSERT INTO locations (name) VALUES ('Alt')");
+    $pdo->exec("INSERT INTO devices (inventory_no, category_id, location_id) VALUES ('OLD-1', 1, 1), ('OLD-2', 1, 1)");
+    $m = new Migrator($pdo);
+    $assert($m->migrate() === ['002', '003', '004', '005', '006'], 'remaining migrations');
+    $assert($m->migrate() === [] && $m->pending() === []);
+    $assert(count($pdo->query('SHOW TABLES')->fetchAll()) === 10);
+    $codes = $pdo->query('SELECT code FROM devices')->fetchAll(PDO::FETCH_COLUMN);
+    $assert(count($codes) === 2 && DeviceCode::valid($codes[0]) && DeviceCode::valid($codes[1]) && $codes[0] !== $codes[1], 'codes for existing devices');
+    $pdo->exec('DELETE FROM devices');
+    $pdo->exec('DELETE FROM categories');
+    $pdo->exec('DELETE FROM locations');
+    $pdo->exec('ALTER TABLE categories AUTO_INCREMENT = 1');
+    $pdo->exec('ALTER TABLE locations AUTO_INCREMENT = 1');
+});
+
+$dbTest('DB: users and login throttle', function () use ($assert) {
+    $id = User::create('admin', 'correct horse battery', 'admin');
+    $u = User::findByUsername('ADMIN');
+    $assert($u !== null && (int) $u['id'] === $id && password_verify('correct horse battery', $u['password_hash']));
+    $assert(User::activeAdmins() === 1);
+    $assert(!LoginThrottle::blocked('admin', '10.0.0.1'));
+    for ($i = 0; $i < LoginThrottle::MAX_PER_USER; $i++) {
+        LoginThrottle::fail('admin', '10.0.0.1');
+    }
+    $assert(LoginThrottle::blocked('Admin', '10.0.0.2'), 'user block');
+    LoginThrottle::clear('admin');
+    $assert(!LoginThrottle::blocked('admin', '10.0.0.3'));
+});
+
+$dbTest('DB: devices, history, duplicates, search', function () use ($assert) {
+    $cats = new NamedList('categories');
+    $locs = new NamedList('locations');
+    $c1 = $cats->create('Laptop');
+    $c2 = $cats->create('Drucker');
+    $l1 = $locs->create('Büro 1');
+    $uid = (int) User::findByUsername('admin')['id'];
+
+    $d = Device::fromInput(['inventory_no' => 'INV-001', 'category_id' => (string) $c1, 'location_id' => (string) $l1,
+        'status' => 'in_use', 'manufacturer' => 'Lenovo', 'model' => 'T14', 'serial_no' => 'SN1', 'purchase_date' => '2026-01-15']);
+    $assert(Device::validate($d) === [], 'valid device');
+    $id = Device::create($d, $uid);
+    $assert(count(History::forDevice($id)) === 1);
+
+    $dup = Device::fromInput(['inventory_no' => 'INV-001', 'category_id' => (string) $c1, 'location_id' => (string) $l1, 'status' => 'stock', 'serial_no' => 'SN1']);
+    $assert((Device::validate($dup)['inventory_no'] ?? '') === 'device.error.inventory_taken');
+    $assert(Device::serialDuplicates('SN1') === ['INV-001'] && Device::serialDuplicates('SN1', $id) === []);
+
+    $bad = Device::fromInput(['inventory_no' => '', 'category_id' => '999', 'location_id' => '0', 'status' => 'x', 'purchase_date' => '2026-13-01']);
+    $assert(array_keys(Device::validate($bad)) === ['inventory_no', 'category_id', 'location_id', 'status', 'purchase_date']);
+
+    $d2 = $d;
+    $d2['category_id'] = $c2;
+    $d2['status'] = 'repair';
+    $d2['note'] = 'Display';
+    $assert(Device::update($id, $d2, $uid) === 3);
+    $h = History::forDevice($id);
+    $fields = array_column($h, 'field');
+    sort($fields);
+    $assert($fields === ['_created', 'category', 'note', 'status'], implode(',', $fields));
+    $catRow = array_values(array_filter($h, fn ($r) => $r['field'] === 'category'))[0];
+    $assert($catRow['old_value'] === 'Laptop' && $catRow['new_value'] === 'Drucker' && $catRow['username'] === 'admin');
+    $assert(Device::update($id, $d2, $uid) === 0, 'no-op update');
+
+    Device::create(Device::fromInput(['inventory_no' => 'INV-002', 'category_id' => (string) $c1, 'location_id' => (string) $l1, 'status' => 'stock', 'note' => '100%']), $uid);
+    $assert(Device::search(['q' => 'lenovo'], 'inventory_no', 'asc', 1, 25)['total'] === 1);
+    $assert(Device::search(['q' => '%'], 'inventory_no', 'asc', 1, 25)['total'] === 1, 'LIKE wildcard escaped');
+    $assert(Device::search(['status' => 'stock'], 'inventory_no', 'asc', 1, 25)['total'] === 1);
+    $assert(Device::search(['category' => $c1], 'inventory_no', 'asc', 1, 25)['total'] === 1);
+    $all = Device::search([], 'inventory_no', 'desc', 1, 1);
+    $assert($all['total'] === 2 && count($all['rows']) === 1 && $all['rows'][0]['inventory_no'] === 'INV-002');
+    $assert(count(iterator_to_array(Device::each([], 'bogus', 'x'))) === 2);
+
+    $assert(!$cats->delete($c1), 'in-use category must not be deletable');
+    $c3 = $cats->create('Leer');
+    $assert($cats->delete($c3) && $cats->nameExists('Laptop') && !$cats->nameExists('Leer'));
+});
+
+$dbTest('DB: device code is set on create, unique and unchangeable', function () use ($assert) {
+    $dev = Db::one('SELECT * FROM devices ORDER BY id LIMIT 1');
+    $assert(DeviceCode::valid($dev['code']));
+    $assert(Device::findByCode($dev['code'])['id'] === $dev['id'] && Device::findByCode('ZZZZZZZZZZ') === null);
+    $assert(Device::update((int) $dev['id'], ['code' => 'AAAAAAAAAA', 'note' => 'x'], null) === 1);
+    $assert(Device::find((int) $dev['id'])['code'] === $dev['code'], 'code must not change');
+    $codes = Db::all('SELECT code FROM devices');
+    $assert(count(array_unique(array_column($codes, 'code'))) === count($codes));
+    $assert(Device::search(['q' => strtolower($dev['code'])], 'inventory_no', 'asc', 1, 25)['total'] === 1, 'search by code');
+});
+
+$dbTest('DB: import preview stores nothing, confirm creates/updates with history', function () use ($assert, $validScan) {
+    $uid = (int) User::findByUsername('admin')['id'];
+    $before = (int) Db::value('SELECT COUNT(*) FROM devices') . '/' . Db::value('SELECT COUNT(*) FROM device_history');
+    [$data] = ScanImport::parse(json_encode($validScan));
+    $assert(Device::findByManufacturerSerial('lenovo ', ' pf4abc12') === [], 'no match yet');
+    $after = (int) Db::value('SELECT COUNT(*) FROM devices') . '/' . Db::value('SELECT COUNT(*) FROM device_history');
+    $assert($before === $after, 'parse must not store anything');
+
+    $base = Device::fromInput(['inventory_no' => 'IMP-1', 'category_id' => '1', 'location_id' => '1', 'status' => 'in_use']);
+    $id = ScanImport::applyCreate($base, $data, $uid);
+    $dev = Device::find($id);
+    $assert($dev['manufacturer'] === 'LENOVO' && $dev['cpu'] === 'Intel Core Ultra 7' && (int) $dev['ram_mb'] === 32768 && $dev['os_name'] === 'Windows 11 Pro');
+    $assert(count(Software::forDevice($id)) === 2);
+    $fields = array_column(History::forDevice($id), 'field');
+    sort($fields);
+    $assert($fields === ['_created', '_import', 'software'], implode(',', $fields));
+
+    $matches = Device::findByManufacturerSerial('lenovo', 'PF4ABC12');
+    $assert(count($matches) === 1 && (int) $matches[0]['id'] === $id, 'match case-insensitive');
+    $upd = array_replace_recursive($validScan, ['scanned_at' => '2026-11-10T20:30:00Z', 'hardware' => ['ram_mb' => 65536], 'os' => ['version' => '10.0.26200']]);
+    $upd['software'] = [['name' => 'Firefox', 'version' => '140']];
+    [$data2] = ScanImport::parse(json_encode($upd));
+    $diff = ScanImport::diff($matches[0], $data2);
+    $assert(array_keys($diff) === ['ram_mb', 'os_version', 'scanned_at', 'software'], implode(',', array_keys($diff)));
+    $assert($diff['ram_mb'] === ['32768', '65536'] && $diff['software'] === ['2', '1']);
+    ScanImport::applyUpdate($id, $data2, $uid);
+    $dev = Device::find($id);
+    $assert((int) $dev['ram_mb'] === 65536 && $dev['os_version'] === '10.0.26200' && $dev['inventory_no'] === 'IMP-1');
+    $h = History::forDevice($id);
+    $assert(count(array_filter($h, fn ($r) => $r['field'] === '_import')) === 2 && count(array_filter($h, fn ($r) => $r['field'] === 'ram_mb')) === 1);
+    $assert(count(Software::forDevice($id)) === 1);
+});
+
+$dbTest('DB: matching order serial → UUID; same scan without serial twice gives one device', function () use ($assert) {
+    $uid = (int) User::findByUsername('admin')['id'];
+    $scan = ['format' => 'bestandio-scan', 'version' => 1, 'scanned_at' => '2026-11-10T20:00:00Z',
+        'hardware' => ['manufacturer' => 'System manufacturer', 'serial_number' => '', 'uuid' => '34F241AC-21F5-6F54-50CF-30C599831023', 'ram_mb' => 16384]];
+    [$d] = ScanImport::parse(json_encode($scan));
+    $assert(ScanImport::matches($d) === [], 'first time: no match');
+    $before = (int) Db::value('SELECT COUNT(*) FROM devices');
+    $id = ScanImport::applyCreate(Device::fromInput(['inventory_no' => 'UUID-1', 'category_id' => '1', 'location_id' => '1', 'status' => 'in_use']), $d, $uid);
+    [$d2] = ScanImport::parse(json_encode(array_replace_recursive($scan, ['hardware' => ['ram_mb' => 32768]])));
+    $m = ScanImport::matches($d2);
+    $assert(count($m) === 1 && (int) $m[0]['id'] === $id, 'second time: matched by UUID');
+    ScanImport::applyUpdate($id, $d2, $uid);
+    $assert((int) Db::value('SELECT COUNT(*) FROM devices') === $before + 1, 'exactly one device');
+    $assert((int) Device::find($id)['ram_mb'] === 32768 && Device::find($id)['uuid'] === '34F241AC-21F5-6F54-50CF-30C599831023');
+    // Serial number wins over UUID; a clone with the same UUID gives several matches to choose from.
+    $clone = ScanImport::applyCreate(Device::fromInput(['inventory_no' => 'UUID-2', 'category_id' => '1', 'location_id' => '1', 'status' => 'stock']), $d, $uid);
+    $assert(count(ScanImport::matches($d)) === 2, 'clones: user chooses');
+    [$d3] = ScanImport::parse(json_encode(array_replace_recursive($scan, ['hardware' => ['manufacturer' => 'LENOVO', 'serial_number' => 'PF4ABC12']])));
+    $bySerial = ScanImport::matches($d3);
+    $assert(count($bySerial) === 1 && $bySerial[0]['serial_no'] === 'PF4ABC12', 'serial before uuid');
+    $assert($clone > 0);
+});
+
+$dbTest('DB: label templates – migration keeps the old settings, one default per kind, built-in fixed', function () use ($assert) {
+    $pdo = Db::pdo();
+    // Run migration 006 again on a given state: old settings rows, with or without devices.
+    $rerun = static function (array $settings, bool $devices) use ($pdo): array {
+        $pdo->exec('DROP TABLE IF EXISTS label_templates');
+        $pdo->exec("DELETE FROM schema_migrations WHERE version = '006'");
+        $pdo->exec('DELETE FROM settings');
+        $pdo->exec('DELETE FROM devices');
+        if ($devices) {
+            $pdo->exec("INSERT INTO categories (name) VALUES ('Mig') ON DUPLICATE KEY UPDATE name = name");
+            $pdo->exec("INSERT INTO locations (name) VALUES ('Mig') ON DUPLICATE KEY UPDATE name = name");
+            $pdo->exec("INSERT INTO devices (code, inventory_no, category_id, location_id) SELECT 'MIGR234567', 'MIG-1', MIN(c.id), MIN(l.id) FROM categories c, locations l");
+        }
+        $ins = $pdo->prepare('INSERT INTO settings (name, value) VALUES (?, ?)');
+        foreach ($settings as $k => $v) {
+            $ins->execute([$k, $v]);
+        }
+        (new Migrator($pdo))->migrate();
+        $pdo->exec('DELETE FROM devices');
+        return [LabelTemplate::all(), LabelTemplate::defaultFor('sheet'), LabelTemplate::defaultFor('single')];
+    };
+
+    // New installation: only the built-in templates.
+    [$all, $sheet, $single] = $rerun([], false);
+    $assert(count($all) === 6 && $sheet['builtin_key'] === 'sheet_a4_3x8' && $single['builtin_key'] === 'single_57x32', 'fresh');
+
+    // Saved own layout: becomes own templates and stays the default.
+    $old = ['company_name' => 'X', 'sheet_cols' => '2', 'sheet_rows' => '7', 'sheet_margin_top' => '10', 'sheet_margin_bottom' => '10',
+        'sheet_margin_left' => '5', 'sheet_margin_right' => '5', 'sheet_gap_x' => '2', 'sheet_gap_y' => '3',
+        'label_template' => 'custom', 'single_width' => '62', 'single_height' => '29', 'dpi' => '300'];
+    [$all, $sheet, $single] = $rerun($old, true);
+    $assert(count($all) === 8, 'two own templates');
+    $assert($sheet['builtin_key'] === null && $sheet['sheet_cols'] === 2 && $sheet['sheet_rows'] === 7 && $sheet['width_mm'] === 99.0
+        && $sheet['height_mm'] === 37.0 && $sheet['margin_left'] === 5.0 && $sheet['gap_y'] === 3.0 && $sheet['dpi'] === 300, json_encode($sheet));
+    $assert($single['builtin_key'] === null && $single['width_mm'] === 62.0 && $single['height_mm'] === 29.0 && $single['dpi'] === 300, json_encode($single));
+    [, $err] = LabelTemplate::validate(array_map(static fn ($v) => (string) $v, array_filter($sheet, static fn ($v) => !is_bool($v) && $v !== null)));
+    $assert($err === [], 'migrated sheet passes validation: ' . json_encode($err));
+    $assert(Settings::all() === ['company_name' => 'X'], 'company name untouched');
+    $assert((int) $pdo->query('SELECT COUNT(*) FROM settings')->fetchColumn() === 13, 'old settings rows kept');
+
+    // Old fixed template: maps to the built-in one; a changed own size is kept as an extra template.
+    [$all, , $single] = $rerun(['label_template' => 'dymo_54x101', 'single_width' => '80', 'single_height' => '40', 'dpi' => '203'], true);
+    $assert($single['builtin_key'] === 'single_54x101', 'dymo -> built-in 54x101');
+    $assert(count(array_filter($all, static fn ($t) => $t['builtin_key'] === null && $t['width_mm'] === 80.0 && !$t['is_default'])) === 1, 'own 80x40 kept');
+
+    // Default: one per kind; the database refuses a second one.
+    $own = LabelTemplate::create(['name' => 'Eigen', 'kind' => 'single', 'width_mm' => 40.0, 'height_mm' => 20.0, 'dpi' => 300, 'orientation' => 'portrait']);
+    LabelTemplate::setDefault(LabelTemplate::find($own));
+    $assert(LabelTemplate::defaultFor('single')['id'] === $own);
+    $assert((int) $pdo->query("SELECT COUNT(*) FROM label_templates WHERE kind = 'single' AND is_default = 1")->fetchColumn() === 1);
+    $refused = false;
+    try {
+        $pdo->exec("UPDATE label_templates SET is_default = 1 WHERE kind = 'single'");
+    } catch (PDOException $e) {
+        $refused = true;
+    }
+    $assert($refused, 'unique default per kind');
+    // Delete: default and built-in are kept; update never touches a built-in.
+    LabelTemplate::delete($own);
+    $builtin = LabelTemplate::defaultFor('sheet');
+    $builtinId = (int) $pdo->query("SELECT id FROM label_templates WHERE builtin_key = 'single_50x25'")->fetchColumn();
+    LabelTemplate::delete($builtinId);
+    LabelTemplate::update($builtinId, ['name' => 'Hack', 'width_mm' => 99.0, 'height_mm' => 99.0, 'dpi' => 100, 'orientation' => 'portrait']);
+    $b = LabelTemplate::find($builtinId);
+    $assert(LabelTemplate::find($own) !== null && $b !== null && $b['width_mm'] === 50.0 && $b['name'] === '', 'default and built-in kept');
+    LabelTemplate::setDefault($b);
+    LabelTemplate::delete($own);
+    $assert(LabelTemplate::find($own) === null && $builtin !== null, 'own non-default deleted');
+    $rerun([], false);
+});
+
+$dbTest('DB: settings saved and read back', function () use ($assert) {
+    [$v] = Settings::validate(['company_name' => 'ARFEP <IT>']);
+    Settings::save($v);
+    $assert(Settings::all() === ['company_name' => 'ARFEP <IT>']);
+});
 
 // ------------------------------------------------------------------- run
 
+$skipped = [];
+if ($withDb) {
+    $tests = array_merge($tests, $dbTests);
+} else {
+    $skipped = $dbTests;
+}
 $passed = 0;
 $failed = 0;
 foreach ($tests as [$name, $fn]) {
@@ -595,6 +700,16 @@ foreach ($tests as [$name, $fn]) {
         fwrite(STDOUT, "  FAIL  $name: " . $ex->getMessage() . "\n");
     }
 }
-$total = count($tests);
-fwrite(STDOUT, sprintf("\n%d/%d passed%s\n", $passed, $total, $withDb ? '' : ' (DB tests skipped: BESTANDIO_TEST_DB_* not set)'));
+foreach ($skipped as [$name]) {
+    fwrite(STDOUT, "  SKIP  $name\n");
+}
+$total = count($tests) + count($skipped);
+fwrite(STDOUT, sprintf(
+    "\n%d/%d passed, %d failed, %d skipped%s\n",
+    $passed,
+    $total,
+    $failed,
+    count($skipped),
+    $skipped === [] ? '' : ' (DB tests need BESTANDIO_TEST_DB_HOST/_PORT/_NAME/_USER/_PASS)'
+));
 exit($failed === 0 ? 0 : 1);

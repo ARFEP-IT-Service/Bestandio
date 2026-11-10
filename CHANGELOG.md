@@ -18,13 +18,20 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 - Geräteseite auf dem Handy in Abschnitten: Übersicht, Hardware, Programme, Verlauf.
 - Installierbar als App (PWA): Manifest, Symbole 192/512 und maskable, Apple-Symbol. Der Service Worker speichert nur statische Dateien unter `assets/`, nie Seiten oder Gerätedaten. CSP nur um `worker-src 'self'` und `manifest-src 'self'` erweitert. Installation braucht HTTPS.
 - Etiketten-Startplatz: Beim Druck auf A4-Bogen zeigt ein Bild des Bogens (nach eingestelltem Raster) die Felder; Antippen/Klicken/Enter wählt den Startplatz, Felder davor sind grau durchgestrichen. Zusätzlich das Feld „Start bei Etikett Nr.“. Gilt nur für den jeweiligen Druck.
+- Etiketten-Vorlagen in der Datenbank (Migration 006): Name, Art (Einzeletikett/A4-Bogen), Breite, Höhe, dpi, Hoch-/Querformat, beim Bogen Spalten, Zeilen, Ränder, Abstände. Admins legen an, ändern, kopieren, löschen; je Art eine Standard-Vorlage (von der Datenbank erzwungen). Mitgeliefert und nicht lösch- oder änderbar: Einzel 50 × 25, 57 × 32, 54 × 101 (quer), 102 × 152, 103 × 199 mm; A4 3 × 8 mit 70 × 36 mm.
+- Druckseite: Vorlage direkt wählbar (natives Auswahlfeld, vorbelegt mit dem Standard); das Startplatz-Bild folgt dem Raster der gewählten A4-Vorlage. Alte Links mit `mode=single` nutzen die Standard-Einzelvorlage.
+- Handy: weicher Seitenwechsel (View Transitions, nur CSS; Kopfzeile und Leiste bleiben stehen; aus bei reduzierter Bewegung). Tipp auf den aktiven Punkt der Leiste lädt nicht neu, sondern scrollt nach oben. Warnung beim Verlassen von Formularen mit ungespeicherten Änderungen (nicht beim Absenden).
 
 #### Geändert
 
+- Einstellungen: Die Etikettenmaße (A4-Raster, Einzeletikett, dpi) sind in die Etiketten-Vorlagen umgezogen; die bisherige Einstellung wird bei der Migration als eigene Standard-Vorlage übernommen. Die Einstellungsseite enthält nur noch den Firmennamen.
+- Tests: Übersprungene DB-Tests werden gezählt und angezeigt (`x/y passed, n failed, m skipped`); DB-Tests laufen nur gegen Datenbanken mit „test“ im Namen.
 - Kamera-Scan: Das Kamerabild füllt den Bereich zwischen Kopfzeile und unterer Leiste, mit Rahmen und Scan-Linie. Erkannt wird nur, was im Rahmen liegt; vorher wurde das ganze Kamerabild ausgewertet, auch abgeschnittene Teile, und Codes wurden erkannt, bevor sie sichtbar in der Mitte waren. Oben links ✕ zum Beenden, oben rechts ⋯ für die anderen Wege (Foto, Code eingeben). Die Kamera startet weiterhin erst über „Kamera starten“.
 
 #### Behoben
 
+- Handy: Kein hängender Hover-Zustand mehr nach Tippen (Hover-Stile nur bei Maus/Trackpad), kein graues Aufblitzen; dezenter eigener Druck-Zustand.
+- Handy: Seitentitel nur einmal sichtbar (in der Kopfzeile); die Überschrift bleibt für Screenreader erhalten.
 - Handy-Leiste: Der runde Scan-Knopf sah auf allen Seiten ausgewählt aus. Jetzt ist er nur auf der Scan-Seite gefüllt, sonst hell mit türkisem Rand.
 - „Mehr“ auf dem Handy: Schrift war winzig, der Scan-Knopf ragte ins Menü, der Hintergrund war nicht abgedunkelt.
 - Seitenwechsel auf dem Handy: Die untere Leiste kommt jetzt gleich am Anfang der Seite statt am Ende, die springende Fußzeile ist auf dem Handy ausgeblendet (Version steht unter „Mehr“).
@@ -111,13 +118,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Device page on phones in sections: overview, hardware, programs, history.
 - Installable as an app (PWA): manifest, icons 192/512 and maskable, Apple touch icon. The service worker caches only static files below `assets/`, never pages or device data. CSP extended only by `worker-src 'self'` and `manifest-src 'self'`. Installing requires HTTPS.
 - Label start position: when printing on an A4 sheet, a picture of the sheet (from the configured grid) shows the positions; tap/click/Enter selects the start position, positions before it are greyed out and struck through. Plus a "Start at label no." field. Applies to the current print only.
+- Label templates in the database (migration 006): name, kind (single label/A4 sheet), width, height, dpi, portrait/landscape, for sheets columns, rows, margins, gaps. Admins create, change, copy and delete them; one default per kind (enforced by the database). Built in and not deletable or changeable: single 50 × 25, 57 × 32, 54 × 101 (landscape), 102 × 152, 103 × 199 mm; A4 3 × 8 with 70 × 36 mm.
+- Print page: the template is chosen right there (native select, preset to the default); the start position picture follows the grid of the chosen A4 template. Old links with `mode=single` use the default single-label template.
+- Phones: smooth page changes (View Transitions, CSS only; header and bar stay in place; off with reduced motion). Tapping the active bar item does not reload but scrolls to the top. Warning when leaving forms with unsaved changes (not when submitting).
 
 #### Changed
 
+- Settings: the label sizes (A4 grid, single label, dpi) moved to the label templates; the previous setting becomes an own default template during the migration. The settings page now only holds the company name.
+- Tests: skipped DB tests are counted and shown (`x/y passed, n failed, m skipped`); DB tests only run against databases with "test" in their name.
 - Camera scan: the camera view fills the area between header and bottom bar, with a frame and a scan line. Only what is inside the frame is read; before, the whole camera image was analysed, including cropped parts, and codes were detected before they were visibly in the middle. ✕ top left to stop, ⋯ top right for the other ways (photo, enter code). The camera still only starts via "Start camera".
 
 #### Fixed
 
+- Phones: no sticking hover state after a tap (hover styles only with mouse/trackpad), no grey flash; a subtle own pressed state.
+- Phones: the page title is shown only once (in the header); the heading stays available to screen readers.
 - Phone bar: the round scan button looked selected on every page. It is now filled only on the scan page, otherwise light with a lagoon ring.
 - "More" on phones: tiny text, the scan button overlapped the menu, the background was not dimmed.
 - Page changes on phones: the bottom bar now comes at the start of the page instead of the end; the jumping footer is hidden on phones (the version is shown under "More").

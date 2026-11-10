@@ -9,6 +9,7 @@ use Bestandio\Controllers\AuthController;
 use Bestandio\Controllers\DeviceController;
 use Bestandio\Controllers\ImportController;
 use Bestandio\Controllers\LabelController;
+use Bestandio\Controllers\LabelTemplateController;
 use Bestandio\Controllers\LangController;
 use Bestandio\Controllers\ListController;
 use Bestandio\Controllers\ScanController;
@@ -45,6 +46,13 @@ final class App
 
         $r->get('/labels', [LabelController::class, 'print']);
         $r->get('/labels/style', [LabelController::class, 'style']);
+        $r->get('/labels/templates', [LabelTemplateController::class, 'index']);
+        $r->get('/labels/templates/new', [LabelTemplateController::class, 'create']);
+        $r->post('/labels/templates', [LabelTemplateController::class, 'store']);
+        $r->get('/labels/templates/{id}/edit', [LabelTemplateController::class, 'edit']);
+        $r->post('/labels/templates/{id}', [LabelTemplateController::class, 'update']);
+        $r->post('/labels/templates/{id}/delete', [LabelTemplateController::class, 'delete']);
+        $r->post('/labels/templates/{id}/default', [LabelTemplateController::class, 'makeDefault']);
         $r->get('/scan', [ScanController::class, 'index']);
         $r->get('/import', [ImportController::class, 'form']);
         $r->post('/import', [ImportController::class, 'preview']);

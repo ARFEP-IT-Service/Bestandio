@@ -12,8 +12,7 @@ final class SettingsController extends Controller
     public function form(): string
     {
         $this->authorize('settings');
-        $values = Settings::all();
-        return $this->render('settings', ['title' => t('settings.title'), 'values' => $values, 'errors' => [], 'labelSize' => Settings::labelSize($values)]);
+        return $this->render('settings', ['title' => t('settings.title'), 'values' => Settings::all(), 'errors' => []]);
     }
 
     public function update(): ?string
@@ -22,7 +21,7 @@ final class SettingsController extends Controller
         [$values, $errors] = Settings::validate($_POST);
         if ($errors) {
             http_response_code(422);
-            return $this->render('settings', ['title' => t('settings.title'), 'values' => $values, 'errors' => $errors, 'labelSize' => null]);
+            return $this->render('settings', ['title' => t('settings.title'), 'values' => $values, 'errors' => $errors]);
         }
         Settings::save($values);
         Session::flash('success', 'settings.saved');

@@ -58,7 +58,10 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-se
   border: 1px solid #c9d3dd; border-radius: 3px; background: #f8fafc; color: #5a6b7b;
   font-size: 0.75rem; font-weight: 600; text-decoration: none; position: relative; overflow: hidden;
 }
-.sheetpick-cell:hover { border-color: #0e7c86; color: #0e7c86; }
+@media (hover: hover) and (pointer: fine) {
+  .sheetpick-cell:hover { border-color: #0e7c86; color: #0e7c86; }
+}
+.sheetpick-cell { -webkit-tap-highlight-color: transparent; }
 .sheetpick-cell:focus-visible { outline: 3px solid rgba(14, 124, 134, 0.45); outline-offset: 1px; }
 /* Used positions: grey and struck through. */
 .sheetpick-cell.is-skipped { background: #e9ecef; color: #9aa5b1; text-decoration: line-through; }
@@ -78,3 +81,9 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-se
 @media screen and (max-width: 40rem) {
   .sheet { zoom: 0.45; margin: 1rem auto; }
 }
+
+/* Template choice (submits on change; the OK button is only needed without JavaScript). */
+.js .js-hide { display: none; }
+.tpl-form { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin: 0; }
+.tpl-form label { font-weight: 600; }
+.tpl-form select { font: inherit; font-size: 16px; min-height: 2.75rem; max-width: 100%; padding: 0.2rem 0.5rem; border: 1px solid #ccd1d7; border-radius: 6px; background: #fff; color: #1c1f23; }

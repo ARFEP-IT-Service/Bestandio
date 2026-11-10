@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Bestandio\Controllers;
 
+use Bestandio\Core\HttpException;
 use Bestandio\Core\Qr;
 use Bestandio\Core\Request;
 use Bestandio\Core\View;
 use Bestandio\Models\Device;
+use Bestandio\Models\LabelTemplate;
 use Bestandio\Models\Settings;
 
 /** QR images and printable labels. */
@@ -32,9 +34,9 @@ final class LabelController extends Controller
         $ids = $_GET['ids'] ?? [];
         $ids = is_array($ids) ? array_slice(array_filter($ids, 'is_string'), 0, self::MAX_LABELS) : [];
         $devices = Device::findMany($ids);
-        $mode = Request::query('mode') === 'single' ? 'single' : 'sheet';
-        $settings = Settings::all();
-        $perSheet = (int) $settings['sheet_cols'] * (int) $settings['sheet_rows'];
+        $tpl = self::template();
+        $mode = $tpl['kind'];
+        $perSheet = LabelTemplate::perSheet($tpl);
         // Start position on the first A4 sheet (1-based, only for this print, never stored).
         // 'skip' (number of used positions) is still accepted for older links.
         $start = (int) Request::query('start', (string) ((int) Request::query('skip', '0') + 1));
@@ -42,57 +44,82 @@ final class LabelController extends Controller
         $skip = $start - 1;
 
         return View::render('labels/print', [
-            'title'    => t('label.title'),
-            'devices'  => $devices,
-            'ids'      => array_map(static fn ($d) => (int) $d['id'], $devices),
-            'mode'     => $mode,
-            'skip'     => $skip,
-            'start'    => $start,
-            'cols'     => (int) $settings['sheet_cols'],
-            'perSheet' => $perSheet,
-            'company'  => (string) $settings['company_name'],
+            'title'     => t('label.title'),
+            'devices'   => $devices,
+            'ids'       => array_map(static fn ($d) => (int) $d['id'], $devices),
+            'mode'      => $mode,
+            'tpl'       => $tpl,
+            'templates' => LabelTemplate::all(),
+            'skip'      => $skip,
+            'start'     => $start,
+            'cols'      => (int) ($tpl['sheet_cols'] ?? 1),
+            'perSheet'  => $perSheet,
+            'company'   => (string) Settings::all()['company_name'],
         ], 'print');
     }
 
-    /** Print CSS built from the label settings (numbers only). */
+    /** Print CSS built from the chosen label template (numbers only). */
     public function style(): ?string
     {
         $this->authorize('view');
-        $s = Settings::all();
-        $single = Request::query('mode') === 'single';
-        if ($single) {
-            [$w, $h, $dpi] = Settings::singleSize($s);
-        } else {
-            [$w, $h] = Settings::labelSize($s);
-            $dpi = (int) $s['dpi'];
-        }
-        $l = self::layout($w, $h, $dpi);
+        $t = self::template();
+        [$pw, $ph] = LabelTemplate::pageSize($t);
+        [$w, $h] = LabelTemplate::labelSize($t);
+        $l = self::layout($w, $h, (int) $t['dpi']);
         $mm = static fn (float $v): string => rtrim(rtrim(number_format($v, 3, '.', ''), '0'), '.') . 'mm';
 
-        $css = $single
-            ? "@page { size: {$mm($w)} {$mm($h)}; margin: 0; }\n"
-            . ".label { break-after: page; page-break-after: always; }\n"
-            . ".label:last-child { break-after: auto; page-break-after: auto; }\n"
-            . "@media screen { .label { margin: 0 auto 4mm; } }\n"
-            : "@page { size: A4 portrait; margin: 0; }\n"
-            . ".sheet { width: 210mm; height: 297mm; padding: {$mm((float) $s['sheet_margin_top'])} {$mm((float) $s['sheet_margin_right'])} "
-            . "{$mm((float) $s['sheet_margin_bottom'])} {$mm((float) $s['sheet_margin_left'])}; display: grid; "
-            . 'grid-template-columns: repeat(' . (int) $s['sheet_cols'] . ", {$mm($w)}); "
-            . 'grid-template-rows: repeat(' . (int) $s['sheet_rows'] . ", {$mm($h)}); "
-            . "column-gap: {$mm((float) $s['sheet_gap_x'])}; row-gap: {$mm((float) $s['sheet_gap_y'])}; }\n"
-            // Start position picker: same grid as the sheet, cells in the label's aspect ratio.
-            . '.sheetpick-grid { grid-template-columns: repeat(' . (int) $s['sheet_cols'] . ", 1fr); }\n"
-            . '.sheetpick-cell { aspect-ratio: ' . round($w, 2) . ' / ' . round($h, 2) . "; }\n";
-        $css .= ".label { width: {$mm($w)}; height: {$mm($h)}; padding: {$mm($l['pad'])}; gap: {$mm($l['gap'])}; }\n"
-            . ($l['vertical'] ? ".label { flex-direction: column; justify-content: center; text-align: center; }\n.label-text { align-items: center; max-width: 100%; }\n" : '')
-            . ".label-qr { width: {$mm($l['qr'])}; height: {$mm($l['qr'])}; }\n"
-            . ".label-code { font-size: {$mm($l['font'])}; }\n"
-            . ".label-inv, .label-company { font-size: {$mm($l['font'] * 0.75)}; }\n";
+        $css = "@page { size: {$mm($pw)} {$mm($ph)}; margin: 0; }
+";
+        if ($t['kind'] === 'single') {
+            $css .= ".label { break-after: page; page-break-after: always; }
+"
+                . ".label:last-child { break-after: auto; page-break-after: auto; }
+"
+                . "@media screen { .label { margin: 0 auto 4mm; } }
+";
+        } else {
+            $css .= ".sheet { width: {$mm($pw)}; height: {$mm($ph)}; padding: {$mm($t['margin_top'])} {$mm($t['margin_right'])} "
+                . "{$mm($t['margin_bottom'])} {$mm($t['margin_left'])}; display: grid; "
+                . 'grid-template-columns: repeat(' . $t['sheet_cols'] . ", {$mm($w)}); "
+                . 'grid-template-rows: repeat(' . $t['sheet_rows'] . ", {$mm($h)}); "
+                . "column-gap: {$mm($t['gap_x'])}; row-gap: {$mm($t['gap_y'])}; }
+"
+                // Start position picker: same grid as the sheet, cells in the label's aspect ratio.
+                . '.sheetpick-grid { grid-template-columns: repeat(' . $t['sheet_cols'] . ", 1fr); }
+"
+                . '.sheetpick-cell { aspect-ratio: ' . round($w, 2) . ' / ' . round($h, 2) . "; }
+";
+        }
+        $css .= ".label { width: {$mm($w)}; height: {$mm($h)}; padding: {$mm($l['pad'])}; gap: {$mm($l['gap'])}; }
+"
+            . ($l['vertical'] ? ".label { flex-direction: column; justify-content: center; text-align: center; }
+.label-text { align-items: center; max-width: 100%; }
+" : '')
+            . ".label-qr { width: {$mm($l['qr'])}; height: {$mm($l['qr'])}; }
+"
+            . ".label-code { font-size: {$mm($l['font'])}; }
+"
+            . ".label-inv, .label-company { font-size: {$mm($l['font'] * 0.75)}; }
+";
 
         header('Content-Type: text/css; charset=utf-8');
         header('Cache-Control: no-store');
         echo $css;
         return null;
+    }
+
+    /**
+     * Template for this print: ?tpl={id}, else the default of ?mode=single|sheet (older links), else the A4 default.
+     */
+    private static function template(): array
+    {
+        $id = (int) Request::query('tpl', '0');
+        $tpl = $id > 0 ? LabelTemplate::find($id) : null;
+        $tpl ??= LabelTemplate::defaultFor(Request::query('mode') === 'single' ? 'single' : 'sheet');
+        if ($tpl === null) {
+            throw new HttpException(404, 'error.404');
+        }
+        return $tpl;
     }
 
     /**
@@ -106,11 +133,11 @@ final class LabelController extends Controller
         $pad = min($w, $h) * 0.06;
         $gap = $pad;
         if ($vertical) {
-            $qr = Settings::qrSize(min($w - 2 * $pad, $h * 0.6), $dpi);
+            $qr = LabelTemplate::qrSize(min($w - 2 * $pad, $h * 0.6), $dpi);
             $textW = $w - 2 * $pad;
             $textH = $h - 2 * $pad - $qr - $gap;
         } else {
-            $qr = Settings::qrSize(min($h - 2 * $pad, $w * 0.55), $dpi);
+            $qr = LabelTemplate::qrSize(min($h - 2 * $pad, $w * 0.55), $dpi);
             $textW = $w - 2 * $pad - $qr - $gap;
             $textH = $h - 2 * $pad;
         }
