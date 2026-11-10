@@ -52,8 +52,8 @@ Die .exe ist nicht signiert; Windows SmartScreen kann beim ersten Start nachfrag
 
 ### Voraussetzungen
 
-- PHP >= 8.2 mit den Erweiterungen `pdo_mysql`, `mbstring`, `openssl`, `fileinfo` (`intl` wird nicht benötigt)
-- MySQL >= 8.0 oder MariaDB >= 10.6, `utf8mb4`
+- PHP >= 8.3 mit den Erweiterungen `pdo_mysql`, `mbstring`, `openssl`, `fileinfo` (`intl` wird nicht benötigt)
+- MySQL >= 8.4 oder MariaDB >= 10.11, `utf8mb4` (ältere Versionen lehnt die Einrichtung ab)
 - Webserver: Apache (mit `mod_rewrite`) oder nginx + PHP-FPM
 - Keine Composer-Abhängigkeiten, kein Build-Schritt, kein CDN, keine externen Ressourcen zur Laufzeit
 
@@ -140,8 +140,13 @@ php bin/bestandio migrate
 
     # Optional PHP-FPM statt mod_php:
     # <FilesMatch "\.php$">
-    #     SetHandler "proxy:unix:/run/php/php8.2-fpm.sock|fcgi://localhost"
+    #     SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
     # </FilesMatch>
+    # PHP über TCP statt Unix-Socket: Die Adresse muss auf "/" enden.
+    #     SetHandler "proxy:fcgi://127.0.0.1:9000/"
+    # Windows mit php-cgi statt PHP-FPM zusätzlich (sonst "No input file specified"):
+    #     ProxyFCGIBackendType GENERIC
+    #     ProxyFCGISetEnvIf "true" SCRIPT_FILENAME "%{DOCUMENT_ROOT}%{reqenv:SCRIPT_NAME}"
 </VirtualHost>
 ```
 
@@ -176,7 +181,7 @@ server {
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         fastcgi_param DOCUMENT_ROOT   $realpath_root;
         fastcgi_param HTTPS on;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
     }
 
     location ~ \.php$ { return 404; }            # alle anderen .php-Dateien
@@ -215,7 +220,7 @@ mysqldump --single-transaction -u bestandio -p bestandio > bestandio-$(date +%F)
 ```sh
 php -S localhost:8000 -t public   # lokaler Entwicklungsserver
 php tests/run.php                 # Tests ausführen
-mysql --default-character-set=utf8mb4 bestandio < docs/sample-data.sql   # Beispieldaten (30 Geräte) nach dem Setup
+php bin/bestandio sample-data      # Beispieldaten (30 Geräte), nur auf leerer DB; --force erzwingt
 ```
 
 DB-Tests laufen, wenn `BESTANDIO_TEST_DB_HOST`, `BESTANDIO_TEST_DB_PORT`, `BESTANDIO_TEST_DB_NAME`, `BESTANDIO_TEST_DB_USER` und `BESTANDIO_TEST_DB_PASS` gesetzt sind.
@@ -284,8 +289,8 @@ The .exe is not signed; Windows SmartScreen may ask on first start.
 
 ### Requirements
 
-- PHP >= 8.2 with extensions `pdo_mysql`, `mbstring`, `openssl`, `fileinfo` (`intl` is not required)
-- MySQL >= 8.0 or MariaDB >= 10.6, `utf8mb4`
+- PHP >= 8.3 with extensions `pdo_mysql`, `mbstring`, `openssl`, `fileinfo` (`intl` is not required)
+- MySQL >= 8.4 or MariaDB >= 10.11, `utf8mb4` (setup rejects older versions)
 - Web server: Apache (with `mod_rewrite`) or nginx + PHP-FPM
 - No Composer dependencies, no build step, no CDN, no external resources at runtime
 
@@ -372,8 +377,13 @@ The environment variable `BESTANDIO_CONFIG` can point to an alternative config f
 
     # Optional PHP-FPM instead of mod_php:
     # <FilesMatch "\.php$">
-    #     SetHandler "proxy:unix:/run/php/php8.2-fpm.sock|fcgi://localhost"
+    #     SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
     # </FilesMatch>
+    # PHP over TCP instead of a Unix socket: the address must end with "/".
+    #     SetHandler "proxy:fcgi://127.0.0.1:9000/"
+    # Windows with php-cgi instead of PHP-FPM also needs (otherwise "No input file specified"):
+    #     ProxyFCGIBackendType GENERIC
+    #     ProxyFCGISetEnvIf "true" SCRIPT_FILENAME "%{DOCUMENT_ROOT}%{reqenv:SCRIPT_NAME}"
 </VirtualHost>
 ```
 
@@ -408,7 +418,7 @@ server {
         fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
         fastcgi_param DOCUMENT_ROOT   $realpath_root;
         fastcgi_param HTTPS on;
-        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
     }
 
     location ~ \.php$ { return 404; }            # any other .php file
@@ -447,7 +457,7 @@ mysqldump --single-transaction -u bestandio -p bestandio > bestandio-$(date +%F)
 ```sh
 php -S localhost:8000 -t public   # local development server
 php tests/run.php                 # run tests
-mysql --default-character-set=utf8mb4 bestandio < docs/sample-data.sql   # sample data (30 devices) after setup
+php bin/bestandio sample-data      # sample data (30 devices), empty database only; --force overrides
 ```
 
 DB tests run when `BESTANDIO_TEST_DB_HOST`, `BESTANDIO_TEST_DB_PORT`, `BESTANDIO_TEST_DB_NAME`, `BESTANDIO_TEST_DB_USER` and `BESTANDIO_TEST_DB_PASS` are set.

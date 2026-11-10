@@ -19,6 +19,7 @@ Dieses Dokument beschreibt das JSON-Format `bestandio-scan` (Version 1), mit dem
     "manufacturer": "LENOVO",
     "model": "21MC0012GE",
     "serial_number": "PF4ABC12",
+    "uuid": "4C4C4544-0042-3510-8051-B4C04F4A3533",
     "cpu": "Intel(R) Core(TM) Ultra 7 155U",
     "ram_mb": 32768,
     "disks": [ { "type": "nvme", "size_gb": 1024 } ]
@@ -57,7 +58,8 @@ Dieses Dokument beschreibt das JSON-Format `bestandio-scan` (Version 1), mit dem
 | `scanned_at` | String | ja | ISO-8601-Datum/Uhrzeit mit Zeitzone, z. B. `2026-11-10T19:30:00Z` oder `2026-11-10T20:30:00+01:00`; höchstens 24 Stunden in der Zukunft |
 | `hardware` | Objekt | ja | |
 | `hardware.manufacturer` | String | ja | 1–100 Zeichen |
-| `hardware.serial_number` | String | ja (Feld) | 0–100 Zeichen. Leer erlaubt, wenn die Firmware nur Platzhalter liefert („To be filled by O.E.M.“ usw.); solche Geräte werden nie zugeordnet, sondern immer neu angelegt. |
+| `hardware.serial_number` | String | ja (Feld) | 0–100 Zeichen. Leer erlaubt, wenn die Firmware nur Platzhalter liefert („To be filled by O.E.M.“ usw.); solche Geräte werden nur noch über die UUID zugeordnet. |
+| `hardware.uuid` | String | nein | SMBIOS-System-UUID im Format `8-4-4-4-12` (hexadezimal). Platzhalter (nur Nullen, nur `F`, `03000200-0400-0500-0006-000700080009` u. ä.) gelten als „keine UUID“. Nicht eindeutig: geklonte Geräte können dieselbe UUID haben. |
 | `hardware.model` | String | nein | ≤ 100 Zeichen |
 | `hardware.cpu` | String | nein | ≤ 190 Zeichen |
 | `hardware.ram_mb` | Integer | nein | 1–16777216 |
@@ -85,7 +87,11 @@ Das Format enthält bewusst nur Hardwaredaten: keine Benutzernamen, keine Comput
 
 ### Zuordnung zu Geräten
 
-Ein vorhandenes Gerät wird über **Hersteller + Seriennummer** gefunden (ohne Beachtung der Groß-/Kleinschreibung, getrimmt).
+Ein vorhandenes Gerät wird in dieser Reihenfolge gesucht:
+
+1. **Hersteller + Seriennummer** (ohne Beachtung der Groß-/Kleinschreibung, getrimmt; nur wenn die Seriennummer nicht leer ist),
+2. sonst **System-UUID**,
+3. sonst kein Treffer.
 
 - **Ein Treffer:** Vorschau „Aktualisieren“ mit Alt/Neu-Vergleich je Feld.
 - **Mehrere Treffer:** Der Benutzer wählt das Gerät aus.
@@ -100,6 +106,7 @@ Gespeichert wird erst nach Bestätigung. Jede Änderung wird in den Änderungsve
 | `hardware.manufacturer` | Hersteller |
 | `hardware.model` | Modell |
 | `hardware.serial_number` | Seriennummer |
+| `hardware.uuid` | System-UUID |
 | `hardware.cpu` | CPU |
 | `hardware.ram_mb` | RAM |
 | `hardware.disks` | Speicher (als Textzusammenfassung, z. B. `NVMe 1024 GB`) |
@@ -124,6 +131,7 @@ This document describes the JSON format `bestandio-scan` (version 1) used to imp
     "manufacturer": "LENOVO",
     "model": "21MC0012GE",
     "serial_number": "PF4ABC12",
+    "uuid": "4C4C4544-0042-3510-8051-B4C04F4A3533",
     "cpu": "Intel(R) Core(TM) Ultra 7 155U",
     "ram_mb": 32768,
     "disks": [ { "type": "nvme", "size_gb": 1024 } ]
@@ -162,7 +170,8 @@ This document describes the JSON format `bestandio-scan` (version 1) used to imp
 | `scanned_at` | string | yes | ISO 8601 date-time with time zone, e.g. `2026-11-10T19:30:00Z` or `2026-11-10T20:30:00+01:00`; at most 24 hours in the future |
 | `hardware` | object | yes | |
 | `hardware.manufacturer` | string | yes | 1–100 characters |
-| `hardware.serial_number` | string | yes (key) | 0–100 characters. Empty is allowed when the firmware only has placeholders ("To be filled by O.E.M." etc.); such devices are never matched and always created as new devices. |
+| `hardware.serial_number` | string | yes (key) | 0–100 characters. Empty is allowed when the firmware only has placeholders ("To be filled by O.E.M." etc.); such devices can then only be matched by UUID. |
+| `hardware.uuid` | string | no | SMBIOS system UUID in `8-4-4-4-12` hex format. Placeholders (all zeros, all `F`, `03000200-0400-0500-0006-000700080009` and similar) count as "no UUID". Not unique: cloned machines can share a UUID. |
 | `hardware.model` | string | no | ≤ 100 characters |
 | `hardware.cpu` | string | no | ≤ 190 characters |
 | `hardware.ram_mb` | integer | no | 1–16777216 |
@@ -190,7 +199,11 @@ The format deliberately contains only hardware data: no user names, no computer/
 
 ### Matching devices
 
-An existing device is found by **manufacturer + serial number** (case-insensitive, trimmed).
+An existing device is searched in this order:
+
+1. **manufacturer + serial number** (case-insensitive, trimmed; only if the serial number is not empty),
+2. otherwise the **system UUID**,
+3. otherwise no match.
 
 - **One match:** preview "update" with an old/new comparison per field.
 - **Several matches:** the user chooses the device.
@@ -205,6 +218,7 @@ Saving only happens after confirmation. Every change is written to the device's 
 | `hardware.manufacturer` | Manufacturer |
 | `hardware.model` | Model |
 | `hardware.serial_number` | Serial number |
+| `hardware.uuid` | System UUID |
 | `hardware.cpu` | CPU |
 | `hardware.ram_mb` | RAM |
 | `hardware.disks` | Storage (stored as a text summary, e.g. `NVMe 1024 GB`) |

@@ -42,8 +42,13 @@
 
     # Optional: PHP-FPM instead of mod_php
     # <FilesMatch "\.php$">
-    #     SetHandler "proxy:unix:/run/php/php8.2-fpm.sock|fcgi://localhost"
+    #     SetHandler "proxy:unix:/run/php/php8.3-fpm.sock|fcgi://localhost"
     # </FilesMatch>
+    # PHP over TCP: the address must end with "/":
+    #     SetHandler "proxy:fcgi://127.0.0.1:9000/"
+    # Windows with php-cgi instead of PHP-FPM additionally:
+    #     ProxyFCGIBackendType GENERIC
+    #     ProxyFCGISetEnvIf "true" SCRIPT_FILENAME "%{DOCUMENT_ROOT}%{reqenv:SCRIPT_NAME}"
 
     ErrorLog  ${APACHE_LOG_DIR}/bestandio_error.log
     CustomLog ${APACHE_LOG_DIR}/bestandio_access.log combined
