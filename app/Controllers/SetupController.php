@@ -36,6 +36,10 @@ final class SetupController extends Controller
         ];
         $errors = [];
         $notice = null;
+        // Keep entered passwords in the form so "Test connection" does not clear them.
+        $values['db_pass'] = $db['pass'];
+        $values['admin_pass'] = Request::postRaw('admin_pass');
+        $values['admin_pass2'] = Request::postRaw('admin_pass2');
 
         try {
             $pdo = Db::connect($db);
