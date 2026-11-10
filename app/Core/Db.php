@@ -86,14 +86,28 @@ final class Db
         }
     }
 
-    /** Check that the server is MySQL >= 8.0 or MariaDB >= 10.6. */
+    public const MIN_MYSQL = '8.4';
+    public const MIN_MARIADB = '10.11';
+    public const MIN_PHP = '8.3.0';
+
+    /** Check that the server is MySQL >= 8.4 or MariaDB >= 10.11. */
     public static function versionSupported(PDO $pdo): bool
     {
-        $v = (string) $pdo->query('SELECT VERSION()')->fetchColumn();
+        return self::versionOk((string) $pdo->query('SELECT VERSION()')->fetchColumn());
+    }
+
+    /** Version string as returned by SELECT VERSION(), e.g. "8.4.11" or "10.11.14-MariaDB". */
+    public static function versionOk(string $v): bool
+    {
         if (!preg_match('/^(\d+)\.(\d+)/', $v, $m)) {
             return false;
         }
         $num = (int) $m[1] * 100 + (int) $m[2];
-        return stripos($v, 'mariadb') !== false ? $num >= 1006 : $num >= 800;
+        return stripos($v, 'mariadb') !== false ? $num >= 1011 : $num >= 804;
+    }
+
+    public static function phpOk(string $version = PHP_VERSION): bool
+    {
+        return version_compare($version, self::MIN_PHP, '>=');
     }
 }

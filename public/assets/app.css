@@ -422,3 +422,8 @@ details.panel .table-wrap { box-shadow: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Device list on wide screens: short values (category, location, status …) never wrap. */
+@media (min-width: 52rem) {
+  .table td.nowrap { white-space: nowrap; }
+}

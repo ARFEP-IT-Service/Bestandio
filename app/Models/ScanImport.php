@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Bestandio\Models;
 
 use Bestandio\Core\Db;
+use Bestandio\Core\SystemUuid;
 use DateTimeImmutable;
 use DateTimeZone;
 use JsonException;
@@ -22,13 +23,13 @@ final class ScanImport
     public const DISK_TYPES = ['ssd' => 'SSD', 'hdd' => 'HDD', 'nvme' => 'NVMe', 'emmc' => 'eMMC', 'other' => 'Disk'];
 
     private const ROOT_KEYS = ['format', 'version', 'scanned_at', 'hardware', 'os', 'software'];
-    private const HARDWARE_KEYS = ['manufacturer', 'model', 'serial_number', 'cpu', 'ram_mb', 'disks'];
+    private const HARDWARE_KEYS = ['manufacturer', 'model', 'serial_number', 'uuid', 'cpu', 'ram_mb', 'disks'];
     private const DISK_KEYS = ['type', 'size_gb'];
     private const OS_KEYS = ['name', 'version'];
     private const SOFTWARE_KEYS = ['name', 'version', 'vendor'];
 
     /** Device fields an import can set or update, in display order. */
-    public const DEVICE_FIELDS = ['manufacturer', 'model', 'serial_no', 'cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at'];
+    public const DEVICE_FIELDS = ['manufacturer', 'model', 'serial_no', 'uuid', 'cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at'];
 
     private array $errors = [];
     private int $ignored = 0;
@@ -103,6 +104,17 @@ final class ScanImport
         foreach (['model' => 100, 'cpu' => 190] as $k => $max) {
             if (property_exists($hw, $k)) {
                 $out[$k] = $this->string($hw, $k, 'hardware.' . $k, $max, false);
+            }
+        }
+        if (property_exists($hw, 'uuid')) {
+            if (!is_string($hw->uuid) || ($hw->uuid !== '' && !SystemUuid::wellFormed(trim($hw->uuid)))) {
+                $this->error('import.error.invalid', ['field' => 'hardware.uuid']);
+            } else {
+                // Placeholders (all zeros, all F, known dummies) count as no UUID.
+                $uuid = SystemUuid::normalize($hw->uuid);
+                if ($uuid !== '') {
+                    $out['uuid'] = $uuid;
+                }
             }
         }
         if (property_exists($hw, 'ram_mb')) {
@@ -242,6 +254,19 @@ final class ScanImport
     }
 
     // ------------------------------------------------------------ apply
+
+    /**
+     * Existing devices for this scan: 1. manufacturer + serial number, 2. system UUID, 3. none.
+     * Several matches are returned so the user can choose.
+     */
+    public static function matches(array $data): array
+    {
+        $bySerial = Device::findByManufacturerSerial($data['manufacturer'], $data['serial_no']);
+        if ($bySerial) {
+            return $bySerial;
+        }
+        return Device::findByUuid($data['uuid'] ?? '');
+    }
 
     /** Fields of the parsed data that would change on the device: field => [old, new]. */
     public static function diff(array $device, array $data): array

@@ -19,7 +19,7 @@ final class SetupController extends Controller
     public function form(): string
     {
         $this->ensureOpen();
-        return $this->render('setup', ['title' => t('setup.title'), 'values' => $this->defaults(), 'errors' => [], 'notice' => null]);
+        return $this->render('setup', ['title' => t('setup.title'), 'values' => $this->defaults(), 'errors' => $this->phpErrors(), 'notice' => null]);
     }
 
     public function submit(): ?string
@@ -34,7 +34,7 @@ final class SetupController extends Controller
             'pass'    => Request::postRaw('db_pass'),
             'charset' => 'utf8mb4',
         ];
-        $errors = [];
+        $errors = $this->phpErrors();
         $notice = null;
         // Keep entered passwords in the form so "Test connection" does not clear them.
         $values['db_pass'] = $db['pass'];
@@ -43,8 +43,9 @@ final class SetupController extends Controller
 
         try {
             $pdo = Db::connect($db);
-            if (!Db::versionSupported($pdo)) {
-                $errors[] = 'setup.error.version';
+            $version = (string) $pdo->query('SELECT VERSION()')->fetchColumn();
+            if (!Db::versionOk($version)) {
+                $errors[] = ['setup.error.version', ['version' => $version]];
             }
         } catch (PDOException) {
             $pdo = null;
@@ -92,7 +93,13 @@ final class SetupController extends Controller
             }
         }
 
-        return $this->render('setup', ['title' => t('setup.title'), 'values' => $values, 'errors' => array_unique($errors), 'notice' => null]);
+        return $this->render('setup', ['title' => t('setup.title'), 'values' => $values, 'errors' => array_values(array_unique($errors, SORT_REGULAR)), 'notice' => null]);
+    }
+
+    /** PHP below the minimum version blocks the installation. */
+    private function phpErrors(): array
+    {
+        return Db::phpOk() ? [] : [['setup.error.php', ['version' => PHP_VERSION]]];
     }
 
     /** Setup is locked as soon as a configuration exists. */

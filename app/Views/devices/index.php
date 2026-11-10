@@ -82,13 +82,13 @@ $columns = ['inventory_no', 'category', 'manufacturer', 'model', 'serial_no', 'l
       <tr>
         <td data-label="<?= e(t('label.select')) ?>"><input type="checkbox" name="ids[]" value="<?= e($row['id']) ?>" form="label-form" aria-label="<?= e(t('label.select_device', ['inv' => $row['inventory_no']])) ?>"></td>
         <td data-label="<?= e(t('device.inventory_no')) ?>"><a href="<?= e(url('/devices/' . $row['id'])) ?>"><?= e($row['inventory_no']) ?></a></td>
-        <td data-label="<?= e(t('device.category')) ?>"><?= e($row['category']) ?></td>
+        <td class="nowrap" data-label="<?= e(t('device.category')) ?>"><?= e($row['category']) ?></td>
         <td data-label="<?= e(t('device.manufacturer')) ?>"><?= e($row['manufacturer']) ?></td>
         <td data-label="<?= e(t('device.model')) ?>"><?= e($row['model']) ?></td>
-        <td data-label="<?= e(t('device.serial_no')) ?>"><?= e($row['serial_no']) ?></td>
-        <td data-label="<?= e(t('device.location')) ?>"><?= e($row['location']) ?></td>
-        <td data-label="<?= e(t('device.status')) ?>"><span class="badge badge-<?= e($row['status']) ?>"><?= e(t('status.' . $row['status'])) ?></span></td>
-        <td data-label="<?= e(t('device.warranty_until')) ?>"><?= e(fmt_date($row['warranty_until'])) ?></td>
+        <td class="nowrap" data-label="<?= e(t('device.serial_no')) ?>"><?= e($row['serial_no']) ?></td>
+        <td class="nowrap" data-label="<?= e(t('device.location')) ?>"><?= e($row['location']) ?></td>
+        <td class="nowrap" data-label="<?= e(t('device.status')) ?>"><span class="badge badge-<?= e($row['status']) ?>"><?= e(t('status.' . $row['status'])) ?></span></td>
+        <td class="nowrap" data-label="<?= e(t('device.warranty_until')) ?>"><?= e(fmt_date($row['warranty_until'])) ?></td>
       </tr>
       <?php endforeach; ?>
     </tbody>

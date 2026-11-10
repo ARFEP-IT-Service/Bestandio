@@ -50,7 +50,7 @@ final class DeviceController extends Controller
         $this->authorize('view');
         [$filter, $sort, $dir] = $this->listParams();
         $cols = ['inventory_no', 'code', 'category', 'manufacturer', 'model', 'serial_no', 'location', 'status', 'purchase_date',
-            'warranty_until', 'note', 'cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at', 'updated_at'];
+            'warranty_until', 'note', 'cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at', 'uuid', 'updated_at'];
         $sep = Csv::separatorFor(I18n::lang());
 
         header('Content-Type: text/csv; charset=utf-8');

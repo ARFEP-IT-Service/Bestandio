@@ -2,7 +2,7 @@
 use Bestandio\Core\Auth;
 
 $fields = ['inventory_no', 'code', 'category', 'manufacturer', 'model', 'serial_no', 'location', 'status', 'purchase_date', 'warranty_until', 'note', 'created_at', 'updated_at'];
-$hardware = ['cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at'];
+$hardware = ['cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at', 'uuid'];
 $hasHardware = false;
 foreach ($hardware as $f) {
     $hasHardware = $hasHardware || ($device[$f] !== null && $device[$f] !== '');

@@ -19,8 +19,14 @@ final class Migrator
     /** @return array<string,string> version => file path, sorted */
     public function available(): array
     {
+        return self::files($this->dir);
+    }
+
+    /** Migration files in a directory (no database needed). @return array<string,string> */
+    public static function files(string $dir = BESTANDIO_ROOT . '/migrations'): array
+    {
         $out = [];
-        foreach (glob($this->dir . '/*.{sql,php}', GLOB_BRACE) ?: [] as $file) {
+        foreach (glob($dir . '/*.{sql,php}', GLOB_BRACE) ?: [] as $file) {
             if (preg_match('/^(\d{3,})_[a-z0-9_]+\.(sql|php)$/', basename($file), $m)) {
                 $out[$m[1]] = $file;
             }

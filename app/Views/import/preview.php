@@ -12,7 +12,7 @@ $show = static function (string $field, string $value): string {
     };
 };
 $err = static fn (string $f): string => isset($errors[$f]) ? t($errors[$f]) : '';
-$fields = ['manufacturer', 'model', 'serial_no', 'cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at'];
+$fields = ['manufacturer', 'model', 'serial_no', 'uuid', 'cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at'];
 ?>
 <div class="pagehead">
   <h1><?= e(t('import.preview')) ?></h1>

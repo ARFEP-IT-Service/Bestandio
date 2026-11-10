@@ -144,7 +144,7 @@ $test('Migrator splits SQL files', function () use ($assert) {
     $parts = Migrator::split("-- comment\nCREATE TABLE a (x INT);\n\nCREATE TABLE b (\n y INT\n);\n");
     $assert(count($parts) === 2 && str_starts_with($parts[1], 'CREATE TABLE b'));
     $assert(count(Migrator::split((string) file_get_contents(BESTANDIO_ROOT . '/migrations/001_init.sql'))) === 6);
-    $assert(array_keys((new Migrator(new PDO('sqlite::memory:')))->available()) === ['001', '002', '003', '004']);
+    $assert(array_keys(Migrator::files()) === ['001', '002', '003', '004', '005']);
 });
 
 $test('Validation helpers', function () use ($assert) {
@@ -160,6 +160,28 @@ $test('Request input: invalid UTF-8 and arrays are rejected', function () use ($
     $assert(Bestandio\Core\Request::clean(" Büro ") === 'Büro');
     $assert(Bestandio\Core\Request::clean("B\xFCro") === null && Bestandio\Core\Request::clean(['x']) === null);
     $assert(Device::fromInput(['inventory_no' => "A\xFC"])['inventory_no'] === '');
+});
+
+$test('Minimum versions: PHP 8.3, MySQL 8.4, MariaDB 10.11', function () use ($assert) {
+    foreach (['8.4.0' => true, '8.4.11' => true, '9.1.0' => true, '8.0.40' => false, '8.3.99' => false,
+        '10.11.19-MariaDB' => true, '11.4.2-MariaDB-log' => true, '10.6.20-MariaDB' => false, '10.4.32-MariaDB' => false, 'abc' => false] as $v => $ok) {
+        $assert(Db::versionOk($v) === $ok, "db version $v");
+    }
+    $assert(Db::phpOk('8.3.0') && Db::phpOk('8.5.12') && !Db::phpOk('8.2.29'));
+});
+
+$test('System UUID: canonical form, placeholders count as empty', function () use ($assert) {
+    $validScan = ['format' => 'bestandio-scan', 'version' => 1, 'scanned_at' => '2026-11-10T19:30:00Z', 'hardware' => ['manufacturer' => 'Dell', 'serial_number' => 'H7K2LM3']];
+    $assert(Bestandio\Core\SystemUuid::normalize(' 4c4c4544-0042-3510-8051-b4c04f4a3533 ') === '4C4C4544-0042-3510-8051-B4C04F4A3533');
+    foreach (['00000000-0000-0000-0000-000000000000', 'FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF', '03000200-0400-0500-0006-000700080009', ''] as $p) {
+        $assert(Bestandio\Core\SystemUuid::normalize($p) === '', "placeholder $p");
+    }
+    [$d] = ScanImport::parse(json_encode(array_replace_recursive($validScan, ['hardware' => ['uuid' => '4c4c4544-0042-3510-8051-b4c04f4a3533']])));
+    $assert($d['uuid'] === '4C4C4544-0042-3510-8051-B4C04F4A3533');
+    [$d] = ScanImport::parse(json_encode(array_replace_recursive($validScan, ['hardware' => ['uuid' => '03000200-0400-0500-0006-000700080009']])));
+    $assert($d !== null && !isset($d['uuid']), 'placeholder uuid dropped');
+    [$d, $err] = ScanImport::parse(json_encode(array_replace_recursive($validScan, ['hardware' => ['uuid' => 'not-a-uuid']])));
+    $assert($d === null && $err[0][0] === 'import.error.invalid');
 });
 
 $test('CSRF token check', function () use ($assert) {
@@ -376,7 +398,7 @@ if ($withDb) {
         $pdo->exec("INSERT INTO locations (name) VALUES ('Alt')");
         $pdo->exec("INSERT INTO devices (inventory_no, category_id, location_id) VALUES ('OLD-1', 1, 1), ('OLD-2', 1, 1)");
         $m = new Migrator($pdo);
-        $assert($m->migrate() === ['002', '003', '004'], 'remaining migrations');
+        $assert($m->migrate() === ['002', '003', '004', '005'], 'remaining migrations');
         $assert($m->migrate() === [] && $m->pending() === []);
         $assert(count($pdo->query('SHOW TABLES')->fetchAll()) === 9);
         $codes = $pdo->query('SELECT code FROM devices')->fetchAll(PDO::FETCH_COLUMN);
@@ -492,6 +514,29 @@ if ($withDb) {
         $h = History::forDevice($id);
         $assert(count(array_filter($h, fn ($r) => $r['field'] === '_import')) === 2 && count(array_filter($h, fn ($r) => $r['field'] === 'ram_mb')) === 1);
         $assert(count(Software::forDevice($id)) === 1);
+    });
+
+    $test('DB: matching order serial → UUID; same scan without serial twice gives one device', function () use ($assert) {
+        $uid = (int) User::findByUsername('admin')['id'];
+        $scan = ['format' => 'bestandio-scan', 'version' => 1, 'scanned_at' => '2026-11-10T20:00:00Z',
+            'hardware' => ['manufacturer' => 'System manufacturer', 'serial_number' => '', 'uuid' => '34F241AC-21F5-6F54-50CF-30C599831023', 'ram_mb' => 16384]];
+        [$d] = ScanImport::parse(json_encode($scan));
+        $assert(ScanImport::matches($d) === [], 'first time: no match');
+        $before = (int) Db::value('SELECT COUNT(*) FROM devices');
+        $id = ScanImport::applyCreate(Device::fromInput(['inventory_no' => 'UUID-1', 'category_id' => '1', 'location_id' => '1', 'status' => 'in_use']), $d, $uid);
+        [$d2] = ScanImport::parse(json_encode(array_replace_recursive($scan, ['hardware' => ['ram_mb' => 32768]])));
+        $m = ScanImport::matches($d2);
+        $assert(count($m) === 1 && (int) $m[0]['id'] === $id, 'second time: matched by UUID');
+        ScanImport::applyUpdate($id, $d2, $uid);
+        $assert((int) Db::value('SELECT COUNT(*) FROM devices') === $before + 1, 'exactly one device');
+        $assert((int) Device::find($id)['ram_mb'] === 32768 && Device::find($id)['uuid'] === '34F241AC-21F5-6F54-50CF-30C599831023');
+        // Serial number wins over UUID; a clone with the same UUID gives several matches to choose from.
+        $clone = ScanImport::applyCreate(Device::fromInput(['inventory_no' => 'UUID-2', 'category_id' => '1', 'location_id' => '1', 'status' => 'stock']), $d, $uid);
+        $assert(count(ScanImport::matches($d)) === 2, 'clones: user chooses');
+        [$d3] = ScanImport::parse(json_encode(array_replace_recursive($scan, ['hardware' => ['manufacturer' => 'LENOVO', 'serial_number' => 'PF4ABC12']])));
+        $bySerial = ScanImport::matches($d3);
+        $assert(count($bySerial) === 1 && $bySerial[0]['serial_no'] === 'PF4ABC12', 'serial before uuid');
+        $assert($clone > 0);
     });
 
     $test('DB: settings saved and read back', function () use ($assert) {

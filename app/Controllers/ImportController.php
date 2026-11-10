@@ -50,7 +50,7 @@ final class ImportController extends Controller
             throw new HttpException(409, 'import.error.expired');
         }
         $data = $pending['data'];
-        $matches = Device::findByManufacturerSerial($data['manufacturer'], $data['serial_no']);
+        $matches = ScanImport::matches($data);
         $target = Request::post('target');
 
         if ($target !== 'new') {
@@ -102,7 +102,7 @@ final class ImportController extends Controller
 
     private function previewPage(string $token, array $data, int $ignored, array $errors, array $dupes, ?array $device = null): string
     {
-        $matches = Device::findByManufacturerSerial($data['manufacturer'], $data['serial_no']);
+        $matches = ScanImport::matches($data);
         $diffs = [];
         foreach ($matches as $m) {
             $diffs[(int) $m['id']] = ScanImport::diff($m, $data);

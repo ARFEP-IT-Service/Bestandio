@@ -19,12 +19,12 @@ final class Device
     ];
 
     /** Hardware fields, filled by scan imports. */
-    public const HARDWARE = ['cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at'];
+    public const HARDWARE = ['cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at', 'uuid'];
 
     /** Every column that create()/update() may write. The code is not among them. */
     public const WRITABLE = [
         'inventory_no', 'category_id', 'manufacturer', 'model', 'serial_no', 'location_id', 'status',
-        'purchase_date', 'warranty_until', 'note', 'cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at',
+        'purchase_date', 'warranty_until', 'note', 'cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at', 'uuid',
     ];
 
     /** Sort key => SQL column (whitelist). */
@@ -161,6 +161,15 @@ final class Device
     }
 
     /** Devices matching manufacturer + serial number (case-insensitive, trimmed). */
+    /** Devices with this SMBIOS UUID (not unique: clones can share one). */
+    public static function findByUuid(string $uuid): array
+    {
+        if ($uuid === '') {
+            return [];
+        }
+        return Db::all(self::SELECT . ' WHERE d.uuid = ? ORDER BY d.inventory_no', [$uuid]);
+    }
+
     public static function findByManufacturerSerial(string $manufacturer, string $serial): array
     {
         if (trim($serial) === '') {
