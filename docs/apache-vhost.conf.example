@@ -27,6 +27,11 @@
         DirectoryIndex index.php
     </Directory>
 
+    # Never serve dotfiles (e.g. .htaccess, .git).
+    <LocationMatch "/\.">
+        Require all denied
+    </LocationMatch>
+
     # Alternative without .htaccess: set "AllowOverride None" above and
     # use these rules instead (inside the <Directory> block):
     #

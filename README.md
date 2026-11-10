@@ -8,23 +8,30 @@
 
 Bestandio ist ein selbst gehostetes Web-Panel zur Inventarverwaltung (Geräte und Ausstattung) für Unternehmen. Jedes Unternehmen installiert es auf seinem eigenen VPS mit eigener MySQL-Datenbank. Kein App-Store, keine Cloud. Lizenz: MIT.
 
-### Funktionen (v1)
+### Funktionen
 
 - Einrichtungsassistent im Browser (`/setup`)
-- Login/Logout mit `password_hash`, CSRF-Schutz bei jeder Änderung, Session-Cookie `HttpOnly` + `SameSite=Strict` (+ `Secure` unter HTTPS)
+- Login/Logout mit `password_hash` (Passwort mind. 12 Zeichen), CSRF-Schutz bei jeder Änderung, Session-Cookie `HttpOnly` + `SameSite=Strict` (+ `Secure` unter HTTPS); Sitzungen enden nach 2 Stunden ohne Aktivität, spätestens nach 12 Stunden
 - Login-Drosselung: nach 5 Fehlversuchen pro Benutzername oder 20 pro IP innerhalb von 15 Minuten wird der Login für 15 Minuten gesperrt
-- Rollen: **Admin** (alles inkl. Benutzerverwaltung), **Editor** (Geräte, Kategorien, Standorte), **Nur lesen** (Ansicht + CSV-Export)
+- Rollen: **Admin** (alles inkl. Benutzerverwaltung und Einstellungen), **Editor** (Geräte, Kategorien, Standorte, Import), **Nur lesen** (Ansicht, Scannen, CSV-Export)
 - Geräte mit Kategorie, Hersteller, Modell, Seriennummer, Inventarnummer (eindeutig), Standort, Status (in Benutzung / auf Lager / in Reparatur / ausgemustert), Kaufdatum, Garantie bis, Notiz
+- Gerätecode: jedes Gerät erhält einen festen, zufälligen, eindeutigen 10-stelligen Code aus `23456789ABCDEFGHJKMNPQRSTUVWXYZ`, der sich nie ändert
+- QR-Codes enthalten nur diesen Gerätecode (keine URL); erzeugt von einem eingebauten Encoder (ISO/IEC 18004, Fehlerkorrektur Q, SVG) – ohne Bibliothek
+- Etikettendruck für ein Gerät oder eine Auswahl aus der Liste: QR-Code, Gerätecode, Inventarnummer, optional Firmenname; A4-Bogen mit einstellbarem Raster in mm (Spalten, Zeilen, Ränder, Abstände) oder Einzeletiketten für Etikettendrucker (Breite/Höhe einstellbar); Druck über den Browser
+- Einstellungsseite für Admins (Firmenname, Etikettenlayout)
+- Scan-Seite `/scan` für alle angemeldeten Benutzer: nutzt den `BarcodeDetector` des Browsers, sonst die mitgelieferte Bibliothek jsQR 1.4.0 (Apache-2.0, Lizenz unter `public/assets/vendor/jsqr-1.4.0/LICENSE`); Kamera nur unter HTTPS oder auf `localhost`; alternativ Fotoauswahl oder manuelle Code-Eingabe; unbekannter Code → „nicht gefunden“
+- Import von Hardware-Scandaten (JSON, siehe [docs/import-format.md](docs/import-format.md)) für Admin/Editor mit Vorschau und Bestätigung
+- Hardwarefelder (CPU, RAM, Speicher, Betriebssystem, letzter Scan) und Softwareliste auf der Geräteseite
 - Kategorien und Standorte als pflegbare Listen; Warnung bei doppelter Seriennummer
 - Bewusst **keine** Zuordnung von Geräten zu Personen (keine personenbezogenen Daten an Geräten)
 - Liste mit Suche, Filtern (Kategorie, Standort, Status), Sortierung, Seitenaufteilung
-- CSV-Export der gefilterten Liste (Semikolon-getrennt, UTF-8 mit BOM; Zellen, die mit `=` `+` `-` `@` Tab oder CR beginnen, werden gegen Formel-Injection mit einem führenden Apostroph entschärft)
+- CSV-Export der gefilterten Liste: Trennzeichen nach UI-Sprache (Deutsch/Türkisch `;`, Englisch `,`), UTF-8 mit BOM; Zellen, die mit `=` `+` `-` `@` Tab oder CR beginnen, werden gegen Formel-Injection mit einem führenden Apostroph entschärft
 - Änderungsverlauf je Gerät (wer, wann, Feld, alt, neu)
 - Sprachen Deutsch/Englisch/Türkisch, Voreinstellung nach Browser, umschaltbar
 - Hell/Dunkel folgt dem System; Mobile-first
-- Sicherheits-Header: strikte Content-Security-Policy (ohne `unsafe-inline`), `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors 'none'`
+- Sicherheits-Header: strikte Content-Security-Policy (ohne `unsafe-inline`), `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors 'none'`, `Permissions-Policy` (Kamera nur für den eigenen Origin)
 
-**Noch nicht enthalten (geplant):** QR-Code-Erzeugung, QR-Scan per Kamera, Import, portable Windows-.exe.
+**Geplant:** portabler Windows-Scanner als .exe (Go), der das Importformat erzeugt.
 
 ### Voraussetzungen
 
@@ -36,17 +43,15 @@ Bestandio ist ein selbst gehostetes Web-Panel zur Inventarverwaltung (Geräte un
 ### Verzeichnisstruktur
 
 ```
-public/          Document Root: index.php (Front-Controller), assets/, .htaccess
+public/          Document Root: index.php (Front-Controller), assets/ (inkl. vendor/jsqr-1.4.0), .htaccess
 app/             core, controllers, models, views
 config/          config.example.php; config.php wird vom Setup erzeugt (git-ignoriert)
-migrations/      nummerierte SQL-Dateien (001_*.sql, ...)
+migrations/      nummerierte Migrationen (.sql oder .php)
 lang/i18n.json   alle UI-Texte DE/EN/TR – die einzige Stelle zum Bearbeiten/Ergänzen von Übersetzungen
 bin/bestandio    Kommandozeilenwerkzeug
 tests/run.php    eigener Test-Runner (ohne externe Pakete)
-docs/            Beispielkonfigurationen für Webserver
+docs/            Beispielkonfigurationen für Webserver, Importformat
 ```
-
-Nur `public/` ist über das Web erreichbar.
 
 ### Installation
 
@@ -59,14 +64,14 @@ Nur `public/` ist über das Web erreichbar.
    FLUSH PRIVILEGES;
    ```
 
-2. **Dateien auf den Server kopieren** und den Document Root auf `public/` setzen. Beispiele: `docs/nginx.conf.example`, `docs/apache-vhost.conf.example`.
+2. **Dateien auf den Server kopieren** und den Webserver einrichten (siehe [Webserver](#webserver)).
 3. **`config/` für den Webserver-Benutzer beschreibbar machen** (nur für das Setup, danach wieder schreibgeschützt möglich):
 
    ```sh
    chown www-data /var/www/bestandio/config
    ```
 
-4. **`https://ihr-host/setup` im Browser öffnen:** DB-Host, Port, Name, Benutzer und Passwort eingeben, „Verbindung testen“, dann Benutzername und Passwort (mind. 10 Zeichen) des ersten Admins eingeben und absenden. Das Setup führt die Migrationen aus, legt den Admin an und schreibt `config/config.php`. Danach ist `/setup` gesperrt (Antwort 403).
+4. **`https://ihr-host/setup` im Browser öffnen:** DB-Host, Port, Name, Benutzer und Passwort eingeben, „Verbindung testen“, dann Benutzername und Passwort (mind. 12 Zeichen) des ersten Admins eingeben und absenden. Das Setup führt die Migrationen aus, legt den Admin an und schreibt `config/config.php`. Danach ist `/setup` gesperrt (Antwort 403).
 5. **Anmelden.**
 
 #### Alternative: Konfiguration von Hand
@@ -78,6 +83,93 @@ php bin/bestandio migrate
 
 Über die Umgebungsvariable `BESTANDIO_CONFIG` kann ein alternativer Pfad zur Konfigurationsdatei angegeben werden.
 
+### Webserver
+
+**Nur das Verzeichnis `public/` darf Document Root sein.** Alles andere (`app/`, `config/`, `migrations/`, `lang/`, `bin/`, `tests/`, `docs/`) darf aus dem Web nicht erreichbar sein. Vollständige Beispiele (Pfade, Hostname, Zertifikate und PHP-FPM-Socket anpassen; auch als `docs/apache-vhost.conf.example` und `docs/nginx.conf.example`):
+
+**Apache** (`mod_rewrite`, `mod_ssl`):
+
+```apache
+<VirtualHost *:80>
+    ServerName inventory.example.com
+    Redirect permanent / https://inventory.example.com/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName inventory.example.com
+    DocumentRoot /var/www/bestandio/public
+
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/inventory.example.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/inventory.example.com/privkey.pem
+
+    <Directory /var/www/bestandio/public>
+        Options -Indexes +FollowSymLinks
+        # public/.htaccess enthält die Rewrite-Regeln
+        AllowOverride All
+        Require all granted
+        DirectoryIndex index.php
+        # Ohne .htaccess: "AllowOverride None" und stattdessen:
+        # RewriteEngine On
+        # RewriteCond %{REQUEST_FILENAME} !-f
+        # RewriteCond %{REQUEST_FILENAME} !-d
+        # RewriteRule ^ index.php [QSA,L]
+    </Directory>
+
+    # Versteckte Dateien sperren (.htaccess, .git, ...)
+    <LocationMatch "/\.">
+        Require all denied
+    </LocationMatch>
+
+    # Optional PHP-FPM statt mod_php:
+    # <FilesMatch "\.php$">
+    #     SetHandler "proxy:unix:/run/php/php8.2-fpm.sock|fcgi://localhost"
+    # </FilesMatch>
+</VirtualHost>
+```
+
+**nginx** (+ PHP-FPM):
+
+```nginx
+server {
+    listen 80;
+    server_name inventory.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name inventory.example.com;
+
+    root /var/www/bestandio/public;
+    index index.php;
+
+    ssl_certificate     /etc/letsencrypt/live/inventory.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/inventory.example.com/privkey.pem;
+
+    charset utf-8;
+    client_max_body_size 8m;
+    location ~ /\. { deny all; }                 # versteckte Dateien sperren
+
+    location / { try_files $uri /index.php?$query_string; }
+
+    location = /index.php {                      # nur der Front-Controller wird ausgeführt
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT   $realpath_root;
+        fastcgi_param HTTPS on;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+    }
+
+    location ~ \.php$ { return 404; }            # alle anderen .php-Dateien
+}
+```
+
+### HTTPS
+
+HTTPS ist Pflicht. Die Kamera zum Scannen funktioniert nur über HTTPS (oder auf `localhost`), da Browser den Kamerazugriff nur in einem Secure Context erlauben. Die `Permissions-Policy` erlaubt die Kamera nur für den eigenen Origin. Empfohlen: Let's Encrypt mit certbot (`certbot --apache` bzw. `certbot --nginx`). Unter HTTPS erhält das Session-Cookie automatisch das `Secure`-Flag.
+
 ### Kommandozeile
 
 ```sh
@@ -85,13 +177,9 @@ php bin/bestandio migrate   # ausstehende Migrationen anwenden (Tabelle schema_m
 php bin/bestandio status    # angewendete/ausstehende Migrationen auflisten
 ```
 
-### HTTPS
-
-HTTPS ist im Produktivbetrieb Pflicht. Es ist außerdem Voraussetzung für das geplante QR-Scannen per Kamera, da Browser den Kamerazugriff nur über HTTPS (Secure Context) erlauben. Empfohlen: Let's Encrypt mit certbot. Unter HTTPS erhält das Session-Cookie automatisch das `Secure`-Flag.
-
 ### Updates
 
-Dateien ersetzen, dann:
+Dateien ersetzen, dann (Migrationen können `.sql`- oder `.php`-Dateien sein):
 
 ```sh
 php bin/bestandio migrate
@@ -128,23 +216,30 @@ MIT – siehe [LICENSE](LICENSE). © 2026 Halil Ayberk Bulut (ARFEP)
 
 Bestandio is a self-hosted inventory web panel for businesses (devices and equipment). Each business installs it on its own VPS with its own MySQL database. No app store, no cloud. License: MIT.
 
-### Features (v1)
+### Features
 
 - Browser-based setup wizard (`/setup`)
-- Login/logout with `password_hash`, CSRF protection on every change, session cookie `HttpOnly` + `SameSite=Strict` (+ `Secure` on HTTPS)
+- Login/logout with `password_hash` (password min. 12 characters), CSRF protection on every change, session cookie `HttpOnly` + `SameSite=Strict` (+ `Secure` on HTTPS); sessions end after 2 hours without activity and at the latest after 12 hours
 - Login throttling: after 5 failed attempts per user name or 20 per IP within 15 minutes, login is blocked for 15 minutes
-- Roles: **Admin** (everything incl. user management), **Editor** (devices, categories, locations), **Read-only** (view + CSV export)
+- Roles: **Admin** (everything incl. user management and settings), **Editor** (devices, categories, locations, import), **Read-only** (view, scan, CSV export)
 - Devices with category, manufacturer, model, serial number, inventory number (unique), location, status (in use / in stock / in repair / retired), purchase date, warranty until, note
+- Device code: every device gets a fixed, random, unique 10-character code from `23456789ABCDEFGHJKMNPQRSTUVWXYZ` that never changes
+- QR codes contain only this device code (no URL); generated by a built-in encoder (ISO/IEC 18004, error correction level Q, SVG) – no library
+- Label printing for a single device or a selection from the list: QR code, device code, inventory number, optional company name; A4 sheet with a configurable grid in mm (columns, rows, margins, gaps) or single labels for label printers (configurable width/height); printing via the browser
+- Settings page for admins (company name, label layout)
+- Scan page `/scan` for all signed-in users: uses the browser's `BarcodeDetector` when available, otherwise the bundled jsQR 1.4.0 library (Apache-2.0, license at `public/assets/vendor/jsqr-1.4.0/LICENSE`); camera needs HTTPS or `localhost`; photo selection and manual code entry also available; unknown code → "not found"
+- Import of hardware scan data (JSON, see [docs/import-format.md](docs/import-format.md)) for Admin/Editor with preview and confirmation
+- Hardware fields (CPU, RAM, storage, operating system, last scan) and software list on the device page
 - Categories and locations as maintainable lists; warning on duplicate serial number
 - Deliberately **no** assignment of devices to persons (no personal data on devices)
 - List with search, filters (category, location, status), sorting, pagination
-- CSV export of the filtered list (semicolon-separated, UTF-8 with BOM; cells starting with `=` `+` `-` `@` tab or CR are neutralised with a leading apostrophe against formula injection)
+- CSV export of the filtered list: separator depends on the UI language (German/Turkish `;`, English `,`), UTF-8 with BOM; cells starting with `=` `+` `-` `@` tab or CR are neutralised with a leading apostrophe against formula injection
 - Per-device change history (who, when, field, old, new)
 - Languages German/English/Turkish, chosen by browser default, switchable
 - Light/dark follows the system; mobile-first
-- Security headers: strict Content-Security-Policy (no `unsafe-inline`), `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors 'none'`
+- Security headers: strict Content-Security-Policy (no `unsafe-inline`), `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors 'none'`, `Permissions-Policy` (camera for the own origin only)
 
-**Not yet included (planned):** QR code generation, QR scanning via camera, import, portable Windows .exe.
+**Planned:** portable Windows scanner .exe (Go) that produces the import format.
 
 ### Requirements
 
@@ -156,17 +251,15 @@ Bestandio is a self-hosted inventory web panel for businesses (devices and equip
 ### Directory layout
 
 ```
-public/          document root: index.php (front controller), assets/, .htaccess
+public/          document root: index.php (front controller), assets/ (incl. vendor/jsqr-1.4.0), .htaccess
 app/             core, controllers, models, views
 config/          config.example.php; config.php is generated by setup (git-ignored)
-migrations/      numbered SQL files (001_*.sql, ...)
+migrations/      numbered migrations (.sql or .php)
 lang/i18n.json   all UI texts DE/EN/TR – the single place to edit or add translations
 bin/bestandio    command-line tool
 tests/run.php    own test runner (no external packages)
-docs/            example web server configurations
+docs/            example web server configurations, import format
 ```
-
-Only `public/` is exposed to the web.
 
 ### Installation
 
@@ -179,14 +272,14 @@ Only `public/` is exposed to the web.
    FLUSH PRIVILEGES;
    ```
 
-2. **Copy the files to the server** and point the document root to `public/`. Examples: `docs/nginx.conf.example`, `docs/apache-vhost.conf.example`.
+2. **Copy the files to the server** and configure the web server (see [Web server](#web-server)).
 3. **Make `config/` writable by the web server user** (only for the setup; can be made read-only again afterwards):
 
    ```sh
    chown www-data /var/www/bestandio/config
    ```
 
-4. **Open `https://your-host/setup` in the browser:** enter DB host, port, name, user and password, click "Test connection", then enter the first admin's user name and password (min. 10 characters) and submit. Setup runs the migrations, creates the admin and writes `config/config.php`. After that `/setup` is locked (returns 403).
+4. **Open `https://your-host/setup` in the browser:** enter DB host, port, name, user and password, click "Test connection", then enter the first admin's user name and password (min. 12 characters) and submit. Setup runs the migrations, creates the admin and writes `config/config.php`. After that `/setup` is locked (returns 403).
 5. **Log in.**
 
 #### Alternative: configure by hand
@@ -198,6 +291,93 @@ php bin/bestandio migrate
 
 The environment variable `BESTANDIO_CONFIG` can point to an alternative config file path.
 
+### Web server
+
+**Only the `public/` directory may be the document root.** Everything else (`app/`, `config/`, `migrations/`, `lang/`, `bin/`, `tests/`, `docs/`) must not be reachable from the web. Complete examples (adjust paths, host name, certificates and PHP-FPM socket; also available as `docs/apache-vhost.conf.example` and `docs/nginx.conf.example`):
+
+**Apache** (`mod_rewrite`, `mod_ssl`):
+
+```apache
+<VirtualHost *:80>
+    ServerName inventory.example.com
+    Redirect permanent / https://inventory.example.com/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName inventory.example.com
+    DocumentRoot /var/www/bestandio/public
+
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/inventory.example.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/inventory.example.com/privkey.pem
+
+    <Directory /var/www/bestandio/public>
+        Options -Indexes +FollowSymLinks
+        # public/.htaccess contains the rewrite rules
+        AllowOverride All
+        Require all granted
+        DirectoryIndex index.php
+        # Without .htaccess: "AllowOverride None" and instead:
+        # RewriteEngine On
+        # RewriteCond %{REQUEST_FILENAME} !-f
+        # RewriteCond %{REQUEST_FILENAME} !-d
+        # RewriteRule ^ index.php [QSA,L]
+    </Directory>
+
+    # Block hidden files (.htaccess, .git, ...)
+    <LocationMatch "/\.">
+        Require all denied
+    </LocationMatch>
+
+    # Optional PHP-FPM instead of mod_php:
+    # <FilesMatch "\.php$">
+    #     SetHandler "proxy:unix:/run/php/php8.2-fpm.sock|fcgi://localhost"
+    # </FilesMatch>
+</VirtualHost>
+```
+
+**nginx** (+ PHP-FPM):
+
+```nginx
+server {
+    listen 80;
+    server_name inventory.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name inventory.example.com;
+
+    root /var/www/bestandio/public;
+    index index.php;
+
+    ssl_certificate     /etc/letsencrypt/live/inventory.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/inventory.example.com/privkey.pem;
+
+    charset utf-8;
+    client_max_body_size 8m;
+    location ~ /\. { deny all; }                 # block hidden files
+
+    location / { try_files $uri /index.php?$query_string; }
+
+    location = /index.php {                      # only the front controller is executed
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT   $realpath_root;
+        fastcgi_param HTTPS on;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+    }
+
+    location ~ \.php$ { return 404; }            # any other .php file
+}
+```
+
+### HTTPS
+
+HTTPS is required. The camera for scanning only works over HTTPS (or on `localhost`), since browsers only allow camera access in a secure context. The `Permissions-Policy` allows the camera for the own origin only. Recommended: Let's Encrypt with certbot (`certbot --apache` or `certbot --nginx`). Under HTTPS the session cookie automatically gets the `Secure` flag.
+
 ### Command line
 
 ```sh
@@ -205,13 +385,9 @@ php bin/bestandio migrate   # apply pending migrations (tracked in table schema_
 php bin/bestandio status    # list applied/pending migrations
 ```
 
-### HTTPS
-
-HTTPS is required in production. It is also mandatory for the planned camera-based QR scanning, since browsers only allow camera access on HTTPS (secure contexts). Recommended: Let's Encrypt with certbot. Under HTTPS the session cookie automatically gets the `Secure` flag.
-
 ### Updates
 
-Replace the files, then:
+Replace the files, then (migrations may be `.sql` or `.php` files):
 
 ```sh
 php bin/bestandio migrate
