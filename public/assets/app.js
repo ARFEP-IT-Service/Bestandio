@@ -3,6 +3,17 @@
 
 document.documentElement.classList.add('js');
 
+// Service worker: only makes the app installable and caches static files (see sw.js).
+// Browsers allow it on HTTPS and localhost only.
+(function () {
+  var url = document.documentElement.getAttribute('data-sw');
+  if (url && 'serviceWorker' in navigator && window.isSecureContext) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register(url).catch(function () { /* not installable, app still works */ });
+    });
+  }
+}());
+
 document.addEventListener('DOMContentLoaded', function () {
   // Language select submits on change.
   document.querySelectorAll('select[data-autosubmit]').forEach(function (select) {
@@ -27,6 +38,22 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
   });
+
+  // Phone "More" sheet: close on a tap outside or with Escape.
+  var more = document.querySelector('details[data-more]');
+  if (more) {
+    document.addEventListener('click', function (event) {
+      if (more.open && !more.contains(event.target)) {
+        more.open = false;
+      }
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && more.open) {
+        more.open = false;
+        more.querySelector('summary').focus();
+      }
+    });
+  }
 
   // Ask before destructive actions.
   document.querySelectorAll('form[data-confirm]').forEach(function (form) {

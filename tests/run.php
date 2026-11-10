@@ -190,6 +190,34 @@ $test('Version comes only from the VERSION file; sample data lives in tests/fixt
     $assert(is_file(BESTANDIO_ROOT . '/tests/fixtures/sample-data.sql') && !is_file(BESTANDIO_ROOT . '/docs/sample-data.sql'));
 });
 
+$test('PWA: manifest, icons, service worker caches static files only, CSP', function () use ($assert) {
+    $m = json_decode((string) file_get_contents(BESTANDIO_ROOT . '/public/manifest.json'), true);
+    $assert(is_array($m), 'manifest is JSON');
+    foreach (['name', 'short_name', 'start_url', 'display', 'icons', 'background_color', 'theme_color'] as $k) {
+        $assert(!empty($m[$k]), "manifest.$k");
+    }
+    $assert($m['display'] === 'standalone');
+    $sizes = [];
+    foreach ($m['icons'] as $i) {
+        $file = BESTANDIO_ROOT . '/public/' . $i['src'];
+        $assert(is_file($file), 'icon ' . $i['src']);
+        if ($i['type'] === 'image/png') {
+            [$w, $h] = getimagesize($file);
+            $assert($i['sizes'] === "{$w}x{$h}", 'icon size ' . $i['src']);
+            $sizes[] = $i['sizes'] . '/' . ($i['purpose'] ?? 'any');
+        }
+    }
+    $assert(in_array('192x192/any', $sizes, true) && in_array('512x512/any', $sizes, true) && in_array('512x512/maskable', $sizes, true));
+    [$w, $h] = getimagesize(BESTANDIO_ROOT . '/public/assets/icons/apple-touch-icon.png');
+    $assert($w === 180 && $h === 180, 'apple-touch-icon 180');
+    $sw = (string) file_get_contents(BESTANDIO_ROOT . '/public/sw.js');
+    $assert(str_contains($sw, "scopePath + 'assets/'") && str_contains($sw, "indexOf('text/html') === -1"), 'sw: assets only, no HTML');
+    $assert(!preg_match('/cache\.(addAll|add)\(/', $sw), 'sw: no precaching of pages');
+    $csp = Bestandio\Core\App::CSP;
+    $assert(str_contains($csp, "worker-src 'self'") && str_contains($csp, "manifest-src 'self'") && !str_contains($csp, 'unsafe'));
+    $assert(str_contains($csp, "default-src 'none'") && str_contains($csp, "script-src 'self'") && str_contains($csp, "style-src 'self'"));
+});
+
 $test('CSRF token check', function () use ($assert) {
     $_SESSION = [];
     $assert(!Csrf::valid('x'), 'no token in session');

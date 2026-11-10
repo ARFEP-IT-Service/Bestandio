@@ -35,7 +35,11 @@ final class LabelController extends Controller
         $mode = Request::query('mode') === 'single' ? 'single' : 'sheet';
         $settings = Settings::all();
         $perSheet = (int) $settings['sheet_cols'] * (int) $settings['sheet_rows'];
-        $skip = $mode === 'sheet' ? max(0, min($perSheet - 1, (int) Request::query('skip', '0'))) : 0;
+        // Start position on the first A4 sheet (1-based, only for this print, never stored).
+        // 'skip' (number of used positions) is still accepted for older links.
+        $start = (int) Request::query('start', (string) ((int) Request::query('skip', '0') + 1));
+        $start = $mode === 'sheet' ? max(1, min($perSheet, $start)) : 1;
+        $skip = $start - 1;
 
         return View::render('labels/print', [
             'title'    => t('label.title'),
@@ -43,6 +47,8 @@ final class LabelController extends Controller
             'ids'      => array_map(static fn ($d) => (int) $d['id'], $devices),
             'mode'     => $mode,
             'skip'     => $skip,
+            'start'    => $start,
+            'cols'     => (int) $settings['sheet_cols'],
             'perSheet' => $perSheet,
             'company'  => (string) $settings['company_name'],
         ], 'print');
@@ -73,7 +79,10 @@ final class LabelController extends Controller
             . "{$mm((float) $s['sheet_margin_bottom'])} {$mm((float) $s['sheet_margin_left'])}; display: grid; "
             . 'grid-template-columns: repeat(' . (int) $s['sheet_cols'] . ", {$mm($w)}); "
             . 'grid-template-rows: repeat(' . (int) $s['sheet_rows'] . ", {$mm($h)}); "
-            . "column-gap: {$mm((float) $s['sheet_gap_x'])}; row-gap: {$mm((float) $s['sheet_gap_y'])}; }\n";
+            . "column-gap: {$mm((float) $s['sheet_gap_x'])}; row-gap: {$mm((float) $s['sheet_gap_y'])}; }\n"
+            // Start position picker: same grid as the sheet, cells in the label's aspect ratio.
+            . '.sheetpick-grid { grid-template-columns: repeat(' . (int) $s['sheet_cols'] . ", 1fr); }\n"
+            . '.sheetpick-cell { aspect-ratio: ' . round($w, 2) . ' / ' . round($h, 2) . "; }\n";
         $css .= ".label { width: {$mm($w)}; height: {$mm($h)}; padding: {$mm($l['pad'])}; gap: {$mm($l['gap'])}; }\n"
             . ($l['vertical'] ? ".label { flex-direction: column; justify-content: center; text-align: center; }\n.label-text { align-items: center; max-width: 100%; }\n" : '')
             . ".label-qr { width: {$mm($l['qr'])}; height: {$mm($l['qr'])}; }\n"

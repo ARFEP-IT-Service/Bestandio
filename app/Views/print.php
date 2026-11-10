@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light">
 <title><?= e($title) ?> · Bestandio</title>
+<link rel="manifest" href="<?= e(url('/manifest.json')) ?>">
 <link rel="icon" type="image/svg+xml" href="<?= e(asset('logo.svg')) ?>">
 <link rel="stylesheet" href="<?= e(asset('print.css')) ?>">
 <link rel="stylesheet" href="<?= e(url('/labels/style', ['mode' => $mode])) ?>">

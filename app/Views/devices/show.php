@@ -37,6 +37,8 @@ $display = static function (string $field, ?string $value): string {
   </div>
 </div>
 
+<section class="device-section">
+<h2 class="mobile-only"><?= e(t('device.section_overview')) ?></h2>
 <div class="device-top">
   <figure class="device-id">
     <img class="device-qr" src="<?= e(url('/devices/' . $device['id'] . '/qr')) ?>" width="132" height="132" alt="<?= e(t('device.qr_alt', ['code' => $device['code']])) ?>">
@@ -51,7 +53,9 @@ $display = static function (string $field, ?string $value): string {
     <?php endforeach; ?>
   </dl>
 </div>
+</section>
 
+<section class="device-section">
 <h2><?= e(t('device.hardware')) ?></h2>
 <?php if ($hasHardware): ?>
 <dl class="details panel">
@@ -65,8 +69,11 @@ $display = static function (string $field, ?string $value): string {
 <?php else: ?>
 <p class="empty"><?= e(t('device.no_hardware')) ?></p>
 <?php endif; ?>
+</section>
 
 <?php if ($software): ?>
+<section class="device-section">
+<h2 class="mobile-only"><?= e(t('device.section_software')) ?></h2>
 <details class="panel">
   <summary><?= e(t('device.software_count', ['n' => count($software)])) ?></summary>
   <div class="table-wrap">
@@ -90,8 +97,10 @@ $display = static function (string $field, ?string $value): string {
     </table>
   </div>
 </details>
+</section>
 <?php endif; ?>
 
+<section class="device-section">
 <h2><?= e(t('history.title')) ?></h2>
 <?php if ($history): ?>
 <div class="table-wrap">
@@ -125,3 +134,4 @@ $display = static function (string $field, ?string $value): string {
 <?php else: ?>
 <p class="empty"><?= e(t('history.none')) ?></p>
 <?php endif; ?>
+</section>

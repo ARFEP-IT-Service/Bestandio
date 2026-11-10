@@ -5,21 +5,33 @@ $pages = $mode === 'sheet' ? array_chunk($slots, max(1, $perSheet)) : [];
 ?>
 <div class="print-toolbar no-print">
   <a class="btn" href="<?= e(url('/devices')) ?>"><?= e(t('action.back')) ?></a>
-  <a class="btn<?= e($mode === 'sheet' ? ' active' : '') ?>" href="<?= e(url('/labels', $query(['mode' => 'sheet', 'skip' => $skip]))) ?>"><?= e(t('label.mode_sheet')) ?></a>
+  <a class="btn<?= e($mode === 'sheet' ? ' active' : '') ?>" href="<?= e(url('/labels', $query(['mode' => 'sheet', 'start' => $start]))) ?>"><?= e(t('label.mode_sheet')) ?></a>
   <a class="btn<?= e($mode === 'single' ? ' active' : '') ?>" href="<?= e(url('/labels', $query(['mode' => 'single']))) ?>"><?= e(t('label.mode_single')) ?></a>
-  <?php if ($mode === 'sheet'): ?>
-  <form method="get" action="<?= e(url('/labels')) ?>" class="skip-form">
-    <?php foreach ($ids as $id): ?>
-    <input type="hidden" name="ids[]" value="<?= e($id) ?>">
-    <?php endforeach; ?>
-    <input type="hidden" name="mode" value="sheet">
-    <label for="skip"><?= e(t('label.skip')) ?></label>
-    <input id="skip" name="skip" type="number" min="0" max="<?= e($perSheet - 1) ?>" value="<?= e($skip) ?>">
-    <button type="submit" class="btn"><?= e(t('action.ok')) ?></button>
-  </form>
-  <?php endif; ?>
   <button type="button" class="btn btn-primary" data-print><?= e(t('label.print')) ?></button>
   <p class="print-hint"><?= e(t('label.count', ['n' => count($devices)])) ?> · <?= e(t('label.hint')) ?></p>
+  <?php if ($mode === 'sheet' && $devices): ?>
+  <section class="sheetpick" aria-labelledby="sheetpick-title">
+    <h2 id="sheetpick-title"><?= e(t('label.pick_title')) ?></h2>
+    <p class="print-hint"><?= e(t('label.pick_hint')) ?></p>
+    <div class="sheetpick-body">
+      <nav class="sheetpick-grid" aria-label="<?= e(t('label.pick_title')) ?>">
+        <?php for ($n = 1; $n <= $perSheet; $n++): ?>
+        <?php $state = $n < $start ? 'is-skipped' : ($n === $start ? 'is-start is-filled' : ($n < $start + count($devices) ? 'is-filled' : '')); ?>
+        <a class="sheetpick-cell <?= e($state) ?>" href="<?= e(url('/labels', $query(['mode' => 'sheet', 'start' => $n]))) ?>"<?php if ($n === $start): ?> aria-current="true"<?php endif; ?> aria-label="<?= e(t('label.cell', ['n' => $n])) ?>"><?= e($n) ?></a>
+        <?php endfor; ?>
+      </nav>
+      <form method="get" action="<?= e(url('/labels')) ?>" class="skip-form">
+        <?php foreach ($ids as $id): ?>
+        <input type="hidden" name="ids[]" value="<?= e($id) ?>">
+        <?php endforeach; ?>
+        <input type="hidden" name="mode" value="sheet">
+        <label for="start"><?= e(t('label.start_at')) ?></label>
+        <input id="start" name="start" type="number" inputmode="numeric" min="1" max="<?= e($perSheet) ?>" value="<?= e($start) ?>">
+        <button type="submit" class="btn"><?= e(t('action.ok')) ?></button>
+      </form>
+    </div>
+  </section>
+  <?php endif; ?>
 </div>
 
 <?php if (!$devices): ?>

@@ -20,7 +20,7 @@ use Throwable;
 final class App
 {
     public const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
-        . "font-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+        . "font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
 
     public static function router(): Router
     {

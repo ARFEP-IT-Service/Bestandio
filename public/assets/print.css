@@ -43,3 +43,38 @@ body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-se
   .sheet { margin: 0; box-shadow: none; }
   .label { outline: none; }
 }
+
+/* Start position picker: a small picture of the A4 sheet (grid from /labels/style). */
+.print-toolbar { position: static; }
+.sheetpick { flex-basis: 100%; margin-top: 0.25rem; padding-top: 0.75rem; border-top: 1px solid #e1e7ee; }
+.sheetpick h2 { margin: 0 0 0.2rem; font-size: 1rem; }
+.sheetpick-body { display: flex; flex-wrap: wrap; gap: 1rem 1.5rem; align-items: flex-start; margin-top: 0.6rem; }
+.sheetpick-grid {
+  display: grid; gap: 4px; width: min(100%, 15rem); padding: 8px; flex: none;
+  background: #fff; border: 1px solid #ccd1d7; border-radius: 6px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+.sheetpick-cell {
+  display: flex; align-items: center; justify-content: center; min-height: 1.6rem;
+  border: 1px solid #c9d3dd; border-radius: 3px; background: #f8fafc; color: #5a6b7b;
+  font-size: 0.75rem; font-weight: 600; text-decoration: none; position: relative; overflow: hidden;
+}
+.sheetpick-cell:hover { border-color: #0e7c86; color: #0e7c86; }
+.sheetpick-cell:focus-visible { outline: 3px solid rgba(14, 124, 134, 0.45); outline-offset: 1px; }
+/* Used positions: grey and struck through. */
+.sheetpick-cell.is-skipped { background: #e9ecef; color: #9aa5b1; text-decoration: line-through; }
+.sheetpick-cell.is-skipped::after {
+  content: ""; position: absolute; left: -10%; right: -10%; top: 50%; border-top: 1.5px solid #9aa5b1; transform: rotate(-24deg);
+}
+.sheetpick-cell.is-filled { background: #e3f3f4; border-color: #0e7c86; color: #0a646c; }
+.sheetpick-cell.is-start { background: #0e7c86; color: #fff; box-shadow: 0 0 0 2px #fff, 0 0 0 4px #0e7c86; z-index: 1; }
+.skip-form input[type="number"] { font-size: 16px; min-height: 2.75rem; width: 5.5rem; }
+.skip-form label { font-weight: 600; }
+@media (max-width: 40rem) {
+  .print-toolbar .btn, .print-toolbar button { min-height: 2.75rem; }
+  .sheetpick-grid { width: 100%; }
+  .sheetpick-cell { min-height: 2.75rem; font-size: 0.9rem; }
+}
+/* Phones: show the A4 preview scaled down on screen (printing stays 1:1). */
+@media screen and (max-width: 40rem) {
+  .sheet { zoom: 0.45; margin: 1rem auto; }
+}
