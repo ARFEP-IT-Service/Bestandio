@@ -6,14 +6,14 @@ $count = static fn (int $n): string => t($n === 1 ? 'list.used_one' : 'list.used
 $max = max(1, ...array_map(static fn ($i) => (int) $i['used'], $items ?: [['used' => 1]]));
 ?>
 <div class="pagehead">
-  <h1><?= e(t('list.' . $kind)) ?> <span class="count-pill"><?= e(count($items)) ?></span></h1>
+  <h1><span class="pagehead-text"><?= e(t('list.' . $kind)) ?></span> <span class="count-pill"><?= e(count($items)) ?></span></h1>
 </div>
 
 <div class="list-layout<?= e($canEdit ? ' has-aside' : '') ?>">
   <?php if ($canEdit): ?>
   <aside class="panel list-aside">
     <h2><?= e(t('list.new')) ?></h2>
-    <form method="post" action="<?= e(url('/' . $kind)) ?>" class="add-form">
+    <form method="post" action="<?= e(url('/' . $kind)) ?>" class="add-form" data-dirty-guard>
       <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
       <label class="visually-hidden" for="new-name"><?= e(t('list.name')) ?></label>
       <input id="new-name" name="name" type="text" required maxlength="100" placeholder="<?= e(t('list.new_placeholder')) ?>">
@@ -29,7 +29,7 @@ $max = max(1, ...array_map(static fn ($i) => (int) $i['used'], $items ?: [['used
     <?php $id = (int) $item['id']; $used = (int) $item['used']; ?>
     <li class="namelist-row<?= e($editId === $id ? ' is-editing' : '') ?>">
       <?php if ($editId === $id): ?>
-      <form method="post" action="<?= e(url('/' . $kind . '/' . $id)) ?>" class="rename-form">
+      <form method="post" action="<?= e(url('/' . $kind . '/' . $id)) ?>" class="rename-form" data-dirty-guard>
         <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
         <label class="visually-hidden" for="name-<?= e($id) ?>"><?= e(t('list.name')) ?></label>
         <input id="name-<?= e($id) ?>" name="name" type="text" required maxlength="100" value="<?= e($item['name']) ?>" autofocus>

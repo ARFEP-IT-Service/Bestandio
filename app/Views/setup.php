@@ -7,7 +7,7 @@
   <?php foreach ($errors as $err): ?>
   <p class="flash flash-error" role="alert"><?= e(is_array($err) ? t($err[0], $err[1]) : t($err)) ?></p>
   <?php endforeach; ?>
-  <form method="post" action="<?= e(url('/setup')) ?>" class="form">
+  <form method="post" action="<?= e(url('/setup')) ?>" class="form" data-dirty-guard>
     <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
     <fieldset>
       <legend><?= e(t('setup.database')) ?></legend>

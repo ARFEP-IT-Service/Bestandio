@@ -21,7 +21,7 @@ $display = static function (string $field, ?string $value): string {
 };
 ?>
 <div class="pagehead">
-  <h1><?= e($device['inventory_no']) ?> <span class="badge badge-<?= e($device['status']) ?>"><?= e(t('status.' . $device['status'])) ?></span></h1>
+  <h1><span class="pagehead-text"><?= e($device['inventory_no']) ?></span> <span class="badge badge-<?= e($device['status']) ?>"><?= e(t('status.' . $device['status'])) ?></span></h1>
   <div class="actions">
     <?php if (Auth::can('edit')): ?>
     <a class="btn btn-primary" href="<?= e(url('/devices/' . $device['id'] . '/edit')) ?>"><?= e(t('action.edit')) ?></a>

@@ -55,6 +55,65 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // Tab bar: tapping the link of the page you are on does not reload, it scrolls to the top.
+  document.querySelectorAll('.tabbar a[aria-current="page"]').forEach(function (link) {
+    link.addEventListener('click', function (event) {
+      if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
+        return;
+      }
+      if (link.pathname !== window.location.pathname || link.search !== window.location.search) {
+        return;
+      }
+      event.preventDefault();
+      if (more) {
+        more.open = false;
+      }
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+    });
+  });
+
+  // Forms with data-dirty-guard: warn before leaving with unsaved changes, not when submitting.
+  var formState = function (form) {
+    return Array.prototype.map.call(form.elements, function (field) {
+      if (!field.name) {
+        return '';
+      }
+      return field.type === 'checkbox' || field.type === 'radio' ? String(field.checked) : field.value;
+    }).join('\u0000');
+  };
+  var guarded = [];
+  var submitting = false;
+  document.querySelectorAll('form[data-dirty-guard]').forEach(function (form) {
+    var entry = { form: form, initial: formState(form), touched: false };
+    var touch = function () {
+      entry.touched = true;
+    };
+    form.addEventListener('input', touch);
+    form.addEventListener('change', touch);
+    guarded.push(entry);
+  });
+  if (guarded.length) {
+    // Bubbling listener on the document: runs after the form's own handlers (e.g. data-confirm).
+    document.addEventListener('submit', function (event) {
+      if (!event.defaultPrevented && event.target.hasAttribute('data-dirty-guard')) {
+        submitting = true;
+      }
+    });
+    window.addEventListener('pageshow', function () {
+      submitting = false;
+    });
+    window.addEventListener('beforeunload', function (event) {
+      var dirty = !submitting && guarded.some(function (entry) {
+        return entry.touched && formState(entry.form) !== entry.initial;
+      });
+      if (dirty) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    });
+  }
+
   // Ask before destructive actions.
   document.querySelectorAll('form[data-confirm]').forEach(function (form) {
     form.addEventListener('submit', function (event) {

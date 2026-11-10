@@ -40,7 +40,7 @@ $fields = ['manufacturer', 'model', 'serial_no', 'uuid', 'cpu', 'ram_mb', 'stora
   <?php endif; ?>
 </dl>
 
-<form method="post" action="<?= e(url('/import/confirm')) ?>" class="form">
+<form method="post" action="<?= e(url('/import/confirm')) ?>" class="form" data-dirty-guard>
   <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
   <input type="hidden" name="token" value="<?= e($token) ?>">
   <?php if (isset($errors['target'])): ?>

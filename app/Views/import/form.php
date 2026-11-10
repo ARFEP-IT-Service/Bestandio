@@ -14,7 +14,7 @@
 </div>
 <?php endif; ?>
 
-<form method="post" action="<?= e(url('/import')) ?>" enctype="multipart/form-data" class="form panel">
+<form method="post" action="<?= e(url('/import')) ?>" enctype="multipart/form-data" class="form panel" data-dirty-guard>
   <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
   <label for="file"><?= e(t('import.file')) ?></label>
   <input id="file" name="file" type="file" accept=".json,application/json">

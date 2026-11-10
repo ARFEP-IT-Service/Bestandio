@@ -80,7 +80,10 @@ body {
 }
 
 a { color: var(--lagoon); text-underline-offset: 0.18em; }
-a:hover { color: var(--lagoon-strong); }
+/* Hover only with a mouse-like pointer: on touch screens it would stick after a tap. */
+@media (hover: hover) and (pointer: fine) {
+  a:hover { color: var(--lagoon-strong); }
+}
 
 h1, h2 { font-family: var(--font-display); color: var(--ink); }
 h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; margin: 0; }
@@ -148,7 +151,9 @@ h2 { font-size: 1.1rem; font-weight: 650; letter-spacing: -0.01em; margin: 2rem 
   display: inline-flex; align-items: center; gap: 0.6rem; text-decoration: none; color: var(--ink);
   font-family: var(--font-display); font-weight: 750; font-size: 1.15rem; letter-spacing: -0.02em;
 }
-.brand:hover { color: var(--ink); }
+@media (hover: hover) and (pointer: fine) {
+  .brand:hover { color: var(--ink); }
+}
 .topbar-tools { margin-left: auto; display: flex; gap: 0.4rem; align-items: center; }
 .topbar-tools form { margin: 0; display: flex; gap: 0.25rem; }
 
@@ -162,7 +167,9 @@ h2 { font-size: 1.1rem; font-weight: 650; letter-spacing: -0.01em; margin: 2rem 
   color: var(--ink-muted); font-weight: 550; font-size: 0.95rem;
   transition: background-color 0.15s, color 0.15s;
 }
-.mainnav a:hover { background: var(--surface-2); color: var(--ink); }
+@media (hover: hover) and (pointer: fine) {
+  .mainnav a:hover { background: var(--surface-2); color: var(--ink); }
+}
 .mainnav a[aria-current="page"] { background: var(--lagoon-soft); color: var(--lagoon); font-weight: 650; }
 @media (min-width: 64rem) {
   .topbar-inner { padding-bottom: 0.6rem; flex-wrap: nowrap; }
@@ -209,7 +216,9 @@ input[type="date"], select, textarea {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 input::placeholder, textarea::placeholder { color: var(--ink-muted); opacity: 0.8; }
-input:hover, select:hover, textarea:hover { border-color: var(--ink-muted); }
+@media (hover: hover) and (pointer: fine) {
+  input:hover, select:hover, textarea:hover { border-color: var(--ink-muted); }
+}
 textarea { resize: vertical; line-height: 1.45; }
 textarea.mono { font-size: 0.85rem; letter-spacing: 0; }
 input[aria-invalid="true"] { border-color: var(--bad); }
@@ -234,21 +243,23 @@ button, .btn {
   font: inherit; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem;
   min-height: 2.75rem; padding: 0.5rem 1.05rem; border-radius: 10px;
   border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
-  cursor: pointer; text-decoration: none; white-space: nowrap;
+  cursor: pointer; text-decoration: none; white-space: nowrap; -webkit-tap-highlight-color: transparent;
   transition: background-color 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.15s;
 }
-button:hover, .btn:hover { background: var(--surface-2); border-color: var(--ink-muted); color: var(--ink); }
 button:active, .btn:active { transform: translateY(1px); }
 .btn-primary {
   background: var(--lagoon); border-color: var(--lagoon); color: var(--accent-text);
   box-shadow: 0 1px 2px rgba(14, 124, 134, 0.25), 0 4px 12px rgba(14, 124, 134, 0.18);
 }
-.btn-primary:hover { background: var(--lagoon-strong); border-color: var(--lagoon-strong); color: var(--accent-text); }
 .btn-secondary { background: var(--surface); }
 .btn-danger { background: transparent; border-color: color-mix(in srgb, var(--bad) 45%, transparent); color: var(--bad); }
-.btn-danger:hover { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
 .btn-ghost { background: transparent; border-color: transparent; color: var(--ink-muted); }
-.btn-ghost:hover { background: var(--surface-2); border-color: var(--line); }
+@media (hover: hover) and (pointer: fine) {
+  button:hover, .btn:hover { background: var(--surface-2); border-color: var(--ink-muted); color: var(--ink); }
+  .btn-primary:hover { background: var(--lagoon-strong); border-color: var(--lagoon-strong); color: var(--accent-text); }
+  .btn-danger:hover { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+  .btn-ghost:hover { background: var(--surface-2); border-color: var(--line); }
+}
 .btn-small { min-height: 2.25rem; padding: 0.25rem 0.75rem; font-size: 0.9rem; border-radius: 8px; }
 .topbar select { width: auto; min-height: 2.25rem; padding: 0.25rem 0.6rem; border-radius: 8px; font-size: 0.9rem; background: var(--surface-2); }
 .form .btn-primary, .form .btn-secondary { margin-top: 1rem; }
@@ -314,9 +325,11 @@ button:active, .btn:active { transform: translateY(1px); }
     color: var(--ink-muted); background: var(--surface-2); white-space: nowrap;
   }
   .table th a { color: inherit; text-decoration: none; }
-  .table th a:hover { color: var(--lagoon); }
   .table tbody tr { transition: background-color 0.12s; }
-  .table tbody tr:hover { background: var(--surface-2); }
+  @media (hover: hover) and (pointer: fine) {
+    .table th a:hover { color: var(--lagoon); }
+    .table tbody tr:hover { background: var(--surface-2); }
+  }
   .table tbody tr:last-child td { border-bottom: 0; }
 }
 
@@ -377,15 +390,18 @@ details.panel .table-wrap { box-shadow: none; }
   transition: background-color 0.12s;
 }
 .namelist-row:last-child { border-bottom: 0; }
-.namelist-row:hover { background: var(--surface-2); }
+@media (hover: hover) and (pointer: fine) {
+  .namelist-row:hover { background: var(--surface-2); }
+}
 .namelist-row.is-editing { background: var(--lagoon-soft); }
 .namelist-name { flex: 1 1 7rem; min-width: 7rem; font-weight: 600; overflow-wrap: anywhere; }
 .namelist-count { flex: none; text-align: right; font-size: 0.85rem; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
 .namelist-count.is-zero { opacity: 0.7; }
 .namelist-actions { flex: none; display: flex; gap: 0.15rem; align-items: center; justify-content: flex-end; }
 .namelist-actions form { margin: 0; }
-.namelist-row:not(:hover):not(:focus-within) .namelist-actions { opacity: 0.65; }
-@media (hover: none) { .namelist-row .namelist-actions { opacity: 1; } }
+@media (hover: hover) and (pointer: fine) {
+  .namelist-row:not(:hover):not(:focus-within) .namelist-actions { opacity: 0.65; }
+}
 .namelist-bar {
   display: none; height: 0.4rem;
   appearance: none; border: 0; border-radius: 999px; background: var(--line); overflow: hidden;
@@ -404,7 +420,9 @@ details.panel .table-wrap { box-shadow: none; }
 .rename-form { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin: 0; }
 .rename-form input { flex: 1 1 12rem; width: auto; min-height: 2.4rem; }
 .btn-ghost-danger { color: var(--bad); }
-.btn-ghost-danger:hover { background: var(--bad-soft); border-color: transparent; color: var(--bad); }
+@media (hover: hover) and (pointer: fine) {
+  .btn-ghost-danger:hover { background: var(--bad-soft); border-color: transparent; color: var(--bad); }
+}
 
 .label-bar { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center; justify-content: space-between; margin: 0 0 0.75rem; }
 .label-bar label { margin: 0; }
@@ -444,7 +462,9 @@ html.scan-open { overflow: hidden; }
   display: flex; align-items: center; justify-content: center; width: 3rem; height: 3rem; padding: 0; border: 0; border-radius: 50%;
   background: rgba(0, 0, 0, 0.45); color: #fff; cursor: pointer;
 }
-.scan-live-btn:hover { background: rgba(0, 0, 0, 0.65); }
+@media (hover: hover) and (pointer: fine) {
+  .scan-live-btn:hover { background: rgba(0, 0, 0, 0.65); }
+}
 .scan-live-btn:focus-visible, .scan-live-menu button:focus-visible { outline: 3px solid var(--tag); outline-offset: 2px; }
 .scan-live-menu {
   position: absolute; top: calc(4.25rem + env(safe-area-inset-top)); right: calc(0.75rem + env(safe-area-inset-right));
@@ -455,13 +475,22 @@ html.scan-open { overflow: hidden; }
   display: block; width: 100%; min-height: 44px; padding: 0.65rem 0.9rem; border: 0; border-radius: calc(var(--r) - 4px);
   background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer;
 }
-.scan-live-menu button:hover { background: var(--lagoon-soft); }
+@media (hover: hover) and (pointer: fine) {
+  .scan-live-menu button:hover { background: var(--lagoon-soft); }
+}
 
 .pager { display: flex; gap: 0.75rem; align-items: center; justify-content: center; margin: 1.5rem 0; color: var(--ink-muted); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Page changes cross-fade; header and tab bar are their own layers and stay in place. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition { navigation: auto; }
+}
+.topbar { view-transition-name: topbar; }
+.tabbar { view-transition-name: tabbar; }
 
 /* Device list on wide screens: short values (category, location, status …) never wrap. */
 @media (min-width: 52rem) {
@@ -499,6 +528,13 @@ html.scan-open { overflow: hidden; }
   .is-app { padding-bottom: calc(4.75rem + env(safe-area-inset-bottom)); }
   .is-app .container { padding-top: 1.1rem; }
   .is-app .pagehead h1 { font-size: 1.45rem; }
+  /* The title is shown in the header; the h1 stays for screen readers. Badges and counts
+   * in the h1 stay visible when the title text is wrapped in .pagehead-text. */
+  .is-app .pagehead h1:not(:has(.pagehead-text)), .is-app .pagehead-text {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  .is-app .pagehead:has(> h1:only-child):not(:has(.pagehead-text)) { margin: 0; }
 
   .tabbar {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
@@ -510,12 +546,17 @@ html.scan-open { overflow: hidden; }
     flex: 1 1 0; min-width: 3.5rem; min-height: 3.25rem; display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 0.15rem; padding: 0.2rem 0.25rem; border-radius: var(--r); text-decoration: none; color: var(--ink-muted);
     font-size: 0.72rem; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.12s, transform 0.12s;
   }
   .tab-more { display: flex; flex: 1 1 0; }
   .tab-more > summary { list-style: none; width: 100%; }
   .tab-more > summary::-webkit-details-marker { display: none; }
   .tab[aria-current="page"], .tab-more > summary.is-active, .tab-more[open] > summary { color: var(--lagoon); }
-  .tab:hover, .tab-more > summary:hover { color: var(--ink); }
+  @media (hover: hover) and (pointer: fine) {
+    .tab:hover, .tab-more > summary:hover { color: var(--ink); }
+  }
+  /* Own tap feedback instead of hover or the browser's tap highlight. */
+  a.tab:active, .tab-more > summary:active { opacity: 0.7; transform: scale(0.96); }
   .tab[aria-current="page"] .tab-icon, .tab-more > summary.is-active .tab-icon { transform: translateY(-1px); }
 
   /* Scan: the big round button in the middle. */
@@ -545,9 +586,12 @@ html.scan-open { overflow: hidden; }
   .more-list { list-style: none; margin: 0; padding: 0; }
   .more-list a {
     display: flex; align-items: center; min-height: 3rem; padding: 0 0.9rem; border-radius: var(--r);
-    color: var(--ink); text-decoration: none; font-weight: 600;
+    color: var(--ink); text-decoration: none; font-weight: 600; -webkit-tap-highlight-color: transparent;
   }
-  .more-list a:hover, .more-list a[aria-current="page"] { background: var(--lagoon-soft); color: var(--lagoon); }
+  .more-list a[aria-current="page"], .more-list a:active { background: var(--lagoon-soft); color: var(--lagoon); }
+  @media (hover: hover) and (pointer: fine) {
+    .more-list a:hover { background: var(--lagoon-soft); color: var(--lagoon); }
+  }
   .more-lang { display: flex; align-items: center; gap: 0.75rem; padding: 0.4rem 0.9rem; margin: 0.25rem 0; border-top: 1px solid var(--line); }
   .more-lang label { margin: 0; flex: none; }
   .more-lang select { flex: 1; }
@@ -567,4 +611,12 @@ html.scan-open { overflow: hidden; }
   .pagehead .actions { width: 100%; }
   .pagehead .actions > * { flex: 1 1 auto; }
   .pagehead .actions .btn, .pagehead .actions button { width: 100%; }
+}
+
+/* ---------------------------------------------------------------- label templates */
+.inline-action { display: inline; margin: 0; }
+.row-actions { white-space: nowrap; text-align: right; }
+.row-actions > * + * { margin-left: 0.25rem; }
+@media (max-width: 47.99rem) {
+  .row-actions { text-align: left; white-space: normal; }
 }

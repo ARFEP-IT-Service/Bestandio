@@ -7,7 +7,7 @@ use Bestandio\Models\User;
 <?php foreach ($errors as $err): ?>
 <p class="flash flash-error" role="alert"><?= e(t($err)) ?></p>
 <?php endforeach; ?>
-<form method="post" action="<?= e($id === null ? url('/users') : url('/users/' . $id)) ?>" class="form panel narrow">
+<form method="post" action="<?= e($id === null ? url('/users') : url('/users/' . $id)) ?>" class="form panel narrow" data-dirty-guard>
   <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
   <label for="username"><?= e(t('login.username')) ?></label>
   <?php if ($id === null): ?>

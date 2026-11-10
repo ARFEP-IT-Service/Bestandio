@@ -16,7 +16,7 @@ $action = $id === null ? url('/devices') : url('/devices/' . $id);
 <p class="flash flash-error" role="alert"><?= e(t('device.need_lists')) ?></p>
 <?php endif; ?>
 
-<form method="post" action="<?= e($action) ?>" class="form panel">
+<form method="post" action="<?= e($action) ?>" class="form panel" data-dirty-guard>
   <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
 
   <?php if ($dupes): ?>
