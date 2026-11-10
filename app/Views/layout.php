@@ -41,6 +41,7 @@ $onDevices = $isAt('/devices') && $path !== '/devices/new';
 <link rel="icon" type="image/svg+xml" href="<?= e(asset('logo.svg')) ?>">
 <link rel="apple-touch-icon" href="<?= e(asset('icons/apple-touch-icon.png')) ?>">
 <link rel="stylesheet" href="<?= e(asset('app.css')) ?>">
+<script src="<?= e(asset('vt.js')) ?>"></script>
 <script src="<?= e(asset('app.js')) ?>" defer></script>
 </head>
 <body class="<?= e($user === null ? 'is-guest' : 'is-app') ?>"<?php if (in_array(http_response_code(), [409, 422], true)): ?> data-unsaved<?php endif; ?>>
