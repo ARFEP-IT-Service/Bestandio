@@ -356,6 +356,13 @@ details.panel .table-wrap { box-shadow: none; }
 }
 .itemlist li > .inline-form { flex: 1 1 18rem; }
 .itemlist form { margin: 0; }
+.itemlist .muted {
+  flex: none; font-size: 0.8rem; font-weight: 600; padding: 0.3rem 0.65rem; border-radius: 999px;
+  background: var(--surface-2); border: 1px solid var(--line);
+}
+/* The add form is a card on its own; keep the card spacing that .inline-form resets. */
+.panel.inline-form { margin-bottom: 1.5rem; }
+.panel.inline-form label { margin-right: 0.25rem; }
 
 .label-bar { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center; justify-content: space-between; margin: 0 0 0.75rem; }
 .label-bar label { margin: 0; }
