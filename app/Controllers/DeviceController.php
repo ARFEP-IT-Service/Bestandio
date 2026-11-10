@@ -7,11 +7,13 @@ namespace Bestandio\Controllers;
 use Bestandio\Core\Auth;
 use Bestandio\Core\Config;
 use Bestandio\Core\Csv;
+use Bestandio\Core\I18n;
 use Bestandio\Core\Request;
 use Bestandio\Core\Session;
 use Bestandio\Models\Device;
 use Bestandio\Models\History;
 use Bestandio\Models\NamedList;
+use Bestandio\Models\Software;
 
 final class DeviceController extends Controller
 {
@@ -47,15 +49,17 @@ final class DeviceController extends Controller
     {
         $this->authorize('view');
         [$filter, $sort, $dir] = $this->listParams();
-        $cols = ['inventory_no', 'category', 'manufacturer', 'model', 'serial_no', 'location', 'status', 'purchase_date', 'warranty_until', 'note', 'updated_at'];
+        $cols = ['inventory_no', 'code', 'category', 'manufacturer', 'model', 'serial_no', 'location', 'status', 'purchase_date',
+            'warranty_until', 'note', 'cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at', 'updated_at'];
+        $sep = Csv::separatorFor(I18n::lang());
 
         header('Content-Type: text/csv; charset=utf-8');
         header('Content-Disposition: attachment; filename="bestandio-' . date('Y-m-d') . '.csv"');
         echo "\xEF\xBB\xBF";
-        echo Csv::line(array_map(static fn ($c) => t('device.' . $c), $cols));
+        echo Csv::line(array_map(static fn ($c) => t('device.' . $c), $cols), $sep);
         foreach (Device::each($filter, $sort, $dir) as $row) {
             $row['status'] = t('status.' . $row['status']);
-            echo Csv::line(array_map(static fn ($c) => $row[$c], $cols));
+            echo Csv::line(array_map(static fn ($c) => $row[$c], $cols), $sep);
         }
         return null;
     }
@@ -67,7 +71,8 @@ final class DeviceController extends Controller
         return $this->render('devices/show', [
             'title'   => $device['inventory_no'],
             'device'  => $device,
-            'history' => History::forDevice($id),
+            'history'  => History::forDevice($id),
+            'software' => Software::forDevice($id),
         ]);
     }
 

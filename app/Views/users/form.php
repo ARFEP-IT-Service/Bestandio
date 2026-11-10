@@ -29,10 +29,10 @@ use Bestandio\Models\User;
   <?php endif; ?>
 
   <label for="password"><?= e($id === null ? t('login.password') : t('user.password_new_optional')) ?></label>
-  <input id="password" name="password" type="password" autocomplete="new-password" minlength="10"<?= e($id === null ? ' required' : '') ?>>
+  <input id="password" name="password" type="password" autocomplete="new-password" minlength="12"<?= e($id === null ? ' required' : '') ?>>
   <p class="hint"><?= e(t('user.hint.password')) ?></p>
   <label for="password2"><?= e(t('user.password_repeat')) ?></label>
-  <input id="password2" name="password2" type="password" autocomplete="new-password" minlength="10"<?= e($id === null ? ' required' : '') ?>>
+  <input id="password2" name="password2" type="password" autocomplete="new-password" minlength="12"<?= e($id === null ? ' required' : '') ?>>
 
   <div class="actions">
     <button type="submit" class="btn-primary"><?= e(t('action.save')) ?></button>

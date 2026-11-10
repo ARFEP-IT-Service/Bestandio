@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Bestandio\Models;
 
 use Bestandio\Core\Db;
+use Bestandio\Core\DeviceCode;
 use Bestandio\Core\Request;
-use Throwable;
 
 final class Device
 {
@@ -16,6 +16,15 @@ final class Device
     public const FIELDS = [
         'inventory_no', 'category_id', 'manufacturer', 'model', 'serial_no',
         'location_id', 'status', 'purchase_date', 'warranty_until', 'note',
+    ];
+
+    /** Hardware fields, filled by scan imports. */
+    public const HARDWARE = ['cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at'];
+
+    /** Every column that create()/update() may write. The code is not among them. */
+    public const WRITABLE = [
+        'inventory_no', 'category_id', 'manufacturer', 'model', 'serial_no', 'location_id', 'status',
+        'purchase_date', 'warranty_until', 'note', 'cpu', 'ram_mb', 'storage', 'os_name', 'os_version', 'scanned_at',
     ];
 
     /** Sort key => SQL column (whitelist). */
@@ -116,37 +125,66 @@ final class Device
 
     public static function create(array $d, ?int $userId): int
     {
-        $pdo = Db::pdo();
-        $pdo->beginTransaction();
-        try {
+        return Db::transaction(static function () use ($d, $userId): int {
+            $cols = array_values(array_filter(self::WRITABLE, static fn ($f) => array_key_exists($f, $d)));
+            $params = array_map(static fn ($f) => $d[$f], $cols);
+            // Fixed random code; retry in the unlikely case of a collision.
+            for ($try = 1; ; $try++) {
+                $code = DeviceCode::generate();
+                if (Db::value('SELECT id FROM devices WHERE code = ?', [$code]) === null || $try >= 5) {
+                    break;
+                }
+            }
             Db::run(
-                'INSERT INTO devices (inventory_no, category_id, manufacturer, model, serial_no, location_id, status,
-                    purchase_date, warranty_until, note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                array_map(static fn ($f) => $d[$f], self::FIELDS)
+                'INSERT INTO devices (code, ' . implode(', ', $cols) . ') VALUES (?' . str_repeat(', ?', count($cols)) . ')',
+                array_merge([$code], $params)
             );
-            $id = (int) $pdo->lastInsertId();
+            $id = (int) Db::pdo()->lastInsertId();
             History::add($id, $userId, '_created', null, $d['inventory_no']);
-            $pdo->commit();
             return $id;
-        } catch (Throwable $ex) {
-            $pdo->rollBack();
-            throw $ex;
-        }
+        });
     }
 
-    /** Update and record one history row per changed field. Returns number of changed fields. */
+    public static function findByCode(string $code): ?array
+    {
+        return DeviceCode::valid($code) ? Db::one(self::SELECT . ' WHERE d.code = ?', [$code]) : null;
+    }
+
+    /** All devices with the given ids, ordered by inventory number. */
+    public static function findMany(array $ids): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids), static fn ($i) => $i > 0)));
+        if (!$ids) {
+            return [];
+        }
+        return Db::all(self::SELECT . ' WHERE d.id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY d.inventory_no', $ids);
+    }
+
+    /** Devices matching manufacturer + serial number (case-insensitive, trimmed). */
+    public static function findByManufacturerSerial(string $manufacturer, string $serial): array
+    {
+        return Db::all(
+            self::SELECT . ' WHERE LOWER(TRIM(d.manufacturer)) = LOWER(?) AND LOWER(TRIM(d.serial_no)) = LOWER(?) ORDER BY d.inventory_no',
+            [trim($manufacturer), trim($serial)]
+        );
+    }
+
+    /**
+     * Update the given fields (any subset of WRITABLE) and record one history row per change.
+     * The device code is never written. Returns the number of changed fields.
+     */
     public static function update(int $id, array $d, ?int $userId): int
     {
-        $pdo = Db::pdo();
-        $pdo->beginTransaction();
-        try {
+        return Db::transaction(static function () use ($id, $d, $userId): int {
             $old = Db::one(self::SELECT . ' WHERE d.id = ? FOR UPDATE', [$id]);
             if ($old === null) {
-                $pdo->rollBack();
                 return 0;
             }
             $changes = [];
-            foreach (self::FIELDS as $f) {
+            foreach (self::WRITABLE as $f) {
+                if (!array_key_exists($f, $d)) {
+                    continue;
+                }
                 $before = $old[$f] === null ? null : (string) $old[$f];
                 $after = $d[$f] === null ? null : (string) $d[$f];
                 if ($before !== $after) {
@@ -170,14 +208,9 @@ final class Device
                     History::add($id, $userId, $f, $before, $after);
                 }
             }
-            $pdo->commit();
             return count($changes);
-        } catch (Throwable $ex) {
-            $pdo->rollBack();
-            throw $ex;
-        }
+        });
     }
-
     /**
      * Filtered list.
      * @param array{q?:string,category?:int,location?:int,status?:string} $f
@@ -221,8 +254,9 @@ final class Device
         $q = trim((string) ($f['q'] ?? ''));
         if ($q !== '') {
             $like = '%' . addcslashes($q, '%_\\') . '%';
-            $parts[] = '(d.inventory_no LIKE ? OR d.manufacturer LIKE ? OR d.model LIKE ? OR d.serial_no LIKE ? OR d.note LIKE ?)';
-            array_push($params, $like, $like, $like, $like, $like);
+            $parts[] = '(d.inventory_no LIKE ? OR d.code LIKE ? OR d.manufacturer LIKE ? OR d.model LIKE ? OR d.serial_no LIKE ? OR d.note LIKE ?)';
+            // The code column is case-sensitive (ascii_bin); codes are upper case.
+            array_push($params, $like, strtoupper($like), $like, $like, $like, $like);
         }
         if (!empty($f['category'])) {
             $parts[] = 'd.category_id = ?';

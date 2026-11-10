@@ -63,10 +63,15 @@ $columns = ['inventory_no', 'category', 'manufacturer', 'model', 'serial_no', 'l
 <p class="muted"><?= e(t('device.count', ['n' => $total])) ?></p>
 
 <?php if ($rows): ?>
+<form method="get" action="<?= e(url('/labels')) ?>" id="label-form" class="label-bar">
+  <label class="check"><input type="checkbox" data-select-all="ids[]"> <?= e(t('label.select_all')) ?></label>
+  <button type="submit" class="btn-secondary"><?= e(t('label.print_selected')) ?></button>
+</form>
 <div class="table-wrap">
   <table class="table">
     <thead>
       <tr>
+        <th scope="col"><span class="visually-hidden"><?= e(t('label.select')) ?></span></th>
         <?php foreach ($columns as $col): ?>
         <th scope="col"><a href="<?= e($sortLink($col)) ?>"><?= e(t('device.' . $col)) ?><?= e($sortMark($col)) ?></a></th>
         <?php endforeach; ?>
@@ -75,6 +80,7 @@ $columns = ['inventory_no', 'category', 'manufacturer', 'model', 'serial_no', 'l
     <tbody>
       <?php foreach ($rows as $row): ?>
       <tr>
+        <td data-label="<?= e(t('label.select')) ?>"><input type="checkbox" name="ids[]" value="<?= e($row['id']) ?>" form="label-form" aria-label="<?= e(t('label.select_device', ['inv' => $row['inventory_no']])) ?>"></td>
         <td data-label="<?= e(t('device.inventory_no')) ?>"><a href="<?= e(url('/devices/' . $row['id'])) ?>"><?= e($row['inventory_no']) ?></a></td>
         <td data-label="<?= e(t('device.category')) ?>"><?= e($row['category']) ?></td>
         <td data-label="<?= e(t('device.manufacturer')) ?>"><?= e($row['manufacturer']) ?></td>

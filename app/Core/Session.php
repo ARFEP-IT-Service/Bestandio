@@ -6,6 +6,40 @@ namespace Bestandio\Core;
 
 final class Session
 {
+    /** Sign-in ends after 2 h without activity and at the latest after 12 h. */
+    public const IDLE_SECONDS = 7200;
+    public const MAX_SECONDS = 43200;
+
+    /** True if a signed-in session has run out (idle or absolute limit). */
+    public static function expired(array $session, int $now): bool
+    {
+        if (!isset($session['uid'])) {
+            return false;
+        }
+        $created = (int) ($session['created_at'] ?? 0);
+        $last = (int) ($session['last_seen'] ?? 0);
+        return $now - $last > self::IDLE_SECONDS || $now - $created > self::MAX_SECONDS;
+    }
+
+    /** Called once per request: end expired sign-ins, otherwise record activity. */
+    public static function enforceLifetime(): void
+    {
+        $now = Clock::now();
+        if (self::expired($_SESSION, $now)) {
+            $lang = $_SESSION['lang'] ?? null;
+            $_SESSION = [];
+            self::regenerate();
+            if ($lang !== null) {
+                $_SESSION['lang'] = $lang;
+            }
+            self::flash('error', 'login.expired');
+            return;
+        }
+        if (isset($_SESSION['uid'])) {
+            $_SESSION['last_seen'] = $now;
+        }
+    }
+
     public static function start(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -17,6 +51,7 @@ final class Session
         ini_set('session.use_strict_mode', '1');
         ini_set('session.use_only_cookies', '1');
         ini_set('session.use_trans_sid', '0');
+        ini_set('session.gc_maxlifetime', (string) self::IDLE_SECONDS);
         session_name($secure ? '__Host-bestandio' : 'bestandio');
         session_set_cookie_params([
             'lifetime' => 0,

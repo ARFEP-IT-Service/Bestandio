@@ -9,7 +9,7 @@ use Bestandio\Core\Db;
 final class User
 {
     public const ROLES = ['admin', 'editor', 'viewer'];
-    public const MIN_PASSWORD = 10;
+    public const MIN_PASSWORD = 12;
 
     public static function find(int $id): ?array
     {

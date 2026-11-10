@@ -10,10 +10,10 @@
   <label for="current"><?= e(t('account.current')) ?></label>
   <input id="current" name="current" type="password" autocomplete="current-password" required>
   <label for="password"><?= e(t('account.new')) ?></label>
-  <input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required>
+  <input id="password" name="password" type="password" autocomplete="new-password" minlength="12" required>
   <p class="hint"><?= e(t('user.hint.password')) ?></p>
   <label for="password2"><?= e(t('user.password_repeat')) ?></label>
-  <input id="password2" name="password2" type="password" autocomplete="new-password" minlength="10" required>
+  <input id="password2" name="password2" type="password" autocomplete="new-password" minlength="12" required>
   <div class="actions">
     <button type="submit" class="btn-primary"><?= e(t('action.save')) ?></button>
   </div>

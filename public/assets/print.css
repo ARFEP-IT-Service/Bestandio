@@ -1,0 +1,45 @@
+/* Bestandio – label print view. Sizes in mm come from /labels/style (admin settings). */
+
+* { box-sizing: border-box; }
+html, body { margin: 0; background: #e9ebee; color: #000; }
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+
+.print-toolbar {
+  position: sticky; top: 0; z-index: 1; display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+  padding: 0.6rem 1rem; background: #fff; border-bottom: 1px solid #ccd1d7;
+}
+.print-toolbar .btn, .print-toolbar button {
+  font: inherit; display: inline-flex; align-items: center; min-height: 2.4rem; padding: 0.3rem 0.8rem;
+  border: 1px solid #ccd1d7; border-radius: 6px; background: #fff; color: #1c1f23; text-decoration: none; cursor: pointer;
+}
+.print-toolbar .btn.active { border-color: #1f5f99; color: #1f5f99; font-weight: 600; }
+.print-toolbar .btn-primary { background: #1f5f99; border-color: #1f5f99; color: #fff; }
+.print-toolbar input[type="number"] { font: inherit; width: 4.5rem; min-height: 2.4rem; padding: 0.2rem 0.4rem; border: 1px solid #ccd1d7; border-radius: 6px; }
+.skip-form { display: flex; gap: 0.4rem; align-items: center; margin: 0; }
+.print-hint { flex-basis: 100%; margin: 0; color: #5d6670; font-size: 0.85rem; }
+.print-empty { padding: 2rem 1rem; }
+
+.sheet { background: #fff; overflow: hidden; break-after: page; page-break-after: always; }
+.sheet:last-child { break-after: auto; page-break-after: auto; }
+.label {
+  display: flex; align-items: center; overflow: hidden; background: #fff; color: #000;
+  break-inside: avoid; page-break-inside: avoid;
+}
+.label-qr { flex: none; display: block; image-rendering: pixelated; }
+.label-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.label-code { font-family: ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace; font-weight: 700; letter-spacing: 0.04em; }
+.label-inv, .label-company { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.label-company { color: #333; }
+
+@media screen {
+  .sheet { margin: 1rem auto; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18); }
+  .label { outline: 1px dashed #c4c9cf; }
+  .singles { padding: 1rem 0; }
+}
+
+@media print {
+  html, body { background: #fff; }
+  .no-print { display: none !important; }
+  .sheet { margin: 0; box-shadow: none; }
+  .label { outline: none; }
+}

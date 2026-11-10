@@ -7,8 +7,12 @@ namespace Bestandio\Core;
 use Bestandio\Controllers\AccountController;
 use Bestandio\Controllers\AuthController;
 use Bestandio\Controllers\DeviceController;
+use Bestandio\Controllers\ImportController;
+use Bestandio\Controllers\LabelController;
 use Bestandio\Controllers\LangController;
 use Bestandio\Controllers\ListController;
+use Bestandio\Controllers\ScanController;
+use Bestandio\Controllers\SettingsController;
 use Bestandio\Controllers\SetupController;
 use Bestandio\Controllers\UserController;
 use Throwable;
@@ -37,6 +41,16 @@ final class App
         $r->get('/devices/{id}/edit', [DeviceController::class, 'edit']);
         $r->post('/devices/{id}', [DeviceController::class, 'update']);
         $r->post('/devices/{id}/retire', [DeviceController::class, 'retire']);
+        $r->get('/devices/{id}/qr', [LabelController::class, 'qr']);
+
+        $r->get('/labels', [LabelController::class, 'print']);
+        $r->get('/labels/style', [LabelController::class, 'style']);
+        $r->get('/scan', [ScanController::class, 'index']);
+        $r->get('/import', [ImportController::class, 'form']);
+        $r->post('/import', [ImportController::class, 'preview']);
+        $r->post('/import/confirm', [ImportController::class, 'confirm']);
+        $r->get('/settings', [SettingsController::class, 'form']);
+        $r->post('/settings', [SettingsController::class, 'update']);
 
         foreach (['categories', 'locations'] as $kind) {
             $r->get('/' . $kind, [ListController::class, $kind]);
@@ -63,7 +77,7 @@ final class App
         header('Referrer-Policy: same-origin');
         header('X-Frame-Options: DENY');
         header('Cross-Origin-Opener-Policy: same-origin');
-        header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+        header('Permissions-Policy: camera=(self), microphone=(), geolocation=()');
         header('Cache-Control: no-store');
         if (Request::isHttps()) {
             header('Strict-Transport-Security: max-age=31536000');
@@ -81,6 +95,7 @@ final class App
 
         try {
             Session::start();
+            Session::enforceLifetime();
             I18n::init();
             $path = Request::path();
             $method = Request::method();

@@ -14,6 +14,8 @@ final class Auth
         'edit'  => ['admin', 'editor'],
         'lists' => ['admin', 'editor'],
         'users' => ['admin'],
+        'settings' => ['admin'],
+        'import' => ['admin', 'editor'],
     ];
 
     private static ?array $user = null;
@@ -47,6 +49,8 @@ final class Auth
         Session::regenerate();
         Csrf::rotate();
         $_SESSION['uid'] = (int) $user['id'];
+        $_SESSION['created_at'] = Clock::now();
+        $_SESSION['last_seen'] = Clock::now();
         self::$user = $user;
         self::$loaded = true;
     }

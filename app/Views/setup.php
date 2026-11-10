@@ -29,10 +29,10 @@
       <input id="admin_user" name="admin_user" type="text" autocomplete="off" pattern="[A-Za-z0-9._\-]{3,64}" value="<?= e($values['admin_user']) ?>">
       <p class="hint"><?= e(t('user.hint.username')) ?></p>
       <label for="admin_pass"><?= e(t('login.password')) ?></label>
-      <input id="admin_pass" name="admin_pass" type="password" autocomplete="new-password" minlength="10" value="<?= e($values['admin_pass'] ?? '') ?>">
+      <input id="admin_pass" name="admin_pass" type="password" autocomplete="new-password" minlength="12" value="<?= e($values['admin_pass'] ?? '') ?>">
       <p class="hint"><?= e(t('user.hint.password')) ?></p>
       <label for="admin_pass2"><?= e(t('user.password_repeat')) ?></label>
-      <input id="admin_pass2" name="admin_pass2" type="password" autocomplete="new-password" minlength="10" value="<?= e($values['admin_pass2'] ?? '') ?>">
+      <input id="admin_pass2" name="admin_pass2" type="password" autocomplete="new-password" minlength="12" value="<?= e($values['admin_pass2'] ?? '') ?>">
     </fieldset>
     <button type="submit" name="action" value="install" class="btn-primary"><?= e(t('setup.install')) ?></button>
   </form>

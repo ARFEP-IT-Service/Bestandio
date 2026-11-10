@@ -68,6 +68,24 @@ final class Db
         return $v === false ? null : $v;
     }
 
+    /** Run $fn in a transaction; joins an already running one. */
+    public static function transaction(callable $fn): mixed
+    {
+        $pdo = self::pdo();
+        if ($pdo->inTransaction()) {
+            return $fn();
+        }
+        $pdo->beginTransaction();
+        try {
+            $result = $fn();
+            $pdo->commit();
+            return $result;
+        } catch (\Throwable $ex) {
+            $pdo->rollBack();
+            throw $ex;
+        }
+    }
+
     /** Check that the server is MySQL >= 8.0 or MariaDB >= 10.6. */
     public static function versionSupported(PDO $pdo): bool
     {

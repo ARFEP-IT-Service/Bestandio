@@ -6,7 +6,10 @@ namespace Bestandio\Core;
 
 use PDO;
 
-/** Applies migrations/NNN_name.sql in order, tracked in schema_migrations. */
+/**
+ * Applies migrations/NNN_name.sql or NNN_name.php in order, tracked in schema_migrations.
+ * A PHP migration returns a callable that receives the PDO connection.
+ */
 final class Migrator
 {
     public function __construct(private PDO $pdo, private string $dir = BESTANDIO_ROOT . '/migrations')
@@ -17,8 +20,8 @@ final class Migrator
     public function available(): array
     {
         $out = [];
-        foreach (glob($this->dir . '/*.sql') ?: [] as $file) {
-            if (preg_match('/^(\d{3,})_[a-z0-9_]+\.sql$/', basename($file), $m)) {
+        foreach (glob($this->dir . '/*.{sql,php}', GLOB_BRACE) ?: [] as $file) {
+            if (preg_match('/^(\d{3,})_[a-z0-9_]+\.(sql|php)$/', basename($file), $m)) {
                 $out[$m[1]] = $file;
             }
         }
@@ -46,8 +49,13 @@ final class Migrator
         $done = [];
         $files = $this->available();
         foreach ($this->pending() as $version) {
-            foreach (self::split((string) file_get_contents($files[$version])) as $statement) {
-                $this->pdo->exec($statement);
+            if (str_ends_with($files[$version], '.php')) {
+                $migration = require $files[$version];
+                $migration($this->pdo);
+            } else {
+                foreach (self::split((string) file_get_contents($files[$version])) as $statement) {
+                    $this->pdo->exec($statement);
+                }
             }
             $stmt = $this->pdo->prepare('INSERT INTO schema_migrations (version, name) VALUES (?, ?)');
             $stmt->execute([$version, basename($files[$version])]);

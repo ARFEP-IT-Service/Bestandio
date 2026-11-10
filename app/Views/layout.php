@@ -23,8 +23,15 @@ use Bestandio\Core\Request;
       <a href="<?= e(url('/devices')) ?>"><?= e(t('nav.devices')) ?></a>
       <a href="<?= e(url('/categories')) ?>"><?= e(t('nav.categories')) ?></a>
       <a href="<?= e(url('/locations')) ?>"><?= e(t('nav.locations')) ?></a>
+      <a href="<?= e(url('/scan')) ?>"><?= e(t('nav.scan')) ?></a>
+      <?php if (Auth::can('import')): ?>
+      <a href="<?= e(url('/import')) ?>"><?= e(t('nav.import')) ?></a>
+      <?php endif; ?>
       <?php if (Auth::can('users')): ?>
       <a href="<?= e(url('/users')) ?>"><?= e(t('nav.users')) ?></a>
+      <?php endif; ?>
+      <?php if (Auth::can('settings')): ?>
+      <a href="<?= e(url('/settings')) ?>"><?= e(t('nav.settings')) ?></a>
       <?php endif; ?>
       <a href="<?= e(url('/account')) ?>"><?= e(t('nav.account')) ?></a>
     </nav>
