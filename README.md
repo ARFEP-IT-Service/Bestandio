@@ -17,8 +17,8 @@ Bestandio ist ein selbst gehostetes Web-Panel zur Inventarverwaltung (Geräte un
 - Geräte mit Kategorie, Hersteller, Modell, Seriennummer, Inventarnummer (eindeutig), Standort, Status (in Benutzung / auf Lager / in Reparatur / ausgemustert), Kaufdatum, Garantie bis, Notiz
 - Gerätecode: jedes Gerät erhält einen festen, zufälligen, eindeutigen 10-stelligen Code aus `23456789ABCDEFGHJKMNPQRSTUVWXYZ`, der sich nie ändert
 - QR-Codes enthalten nur diesen Gerätecode (keine URL); erzeugt von einem eingebauten Encoder (ISO/IEC 18004, Fehlerkorrektur Q, SVG) – ohne Bibliothek
-- Etikettendruck für ein Gerät oder eine Auswahl aus der Liste: QR-Code, Gerätecode, Inventarnummer, optional Firmenname; A4-Bogen mit einstellbarem Raster in mm (Spalten, Zeilen, Ränder, Abstände) oder Einzeletiketten für Etikettendrucker (Breite/Höhe einstellbar); Druck über den Browser
-- Einstellungsseite für Admins (Firmenname, Etikettenlayout)
+- Etikettendruck für ein Gerät oder eine Auswahl aus der Liste: QR-Code, Gerätecode, Inventarnummer, optional Firmenname; A4-Bogen mit einstellbarem Raster in mm (Spalten, Zeilen, Ränder, Abstände) oder Einzeletiketten für Etikettendrucker (Vorlagen „DYMO 54 × 101 mm“, „Zebra 103 × 199 mm“ oder eigene Größe); QR-Module werden auf ganze Druckerpunkte gerundet (dpi einstellbar, Standard 203); Druck über den Browser
+- Einstellungsseite für Admins (Firmenname, Etikettenvorlage, A4-Raster, dpi)
 - Scan-Seite `/scan` für alle angemeldeten Benutzer: nutzt den `BarcodeDetector` des Browsers, sonst die mitgelieferte Bibliothek jsQR 1.4.0 (Apache-2.0, Lizenz unter `public/assets/vendor/jsqr-1.4.0/LICENSE`); Kamera nur unter HTTPS oder auf `localhost`; alternativ Fotoauswahl oder manuelle Code-Eingabe; unbekannter Code → „nicht gefunden“
 - Import von Hardware-Scandaten (JSON, siehe [docs/import-format.md](docs/import-format.md)) für Admin/Editor mit Vorschau und Bestätigung
 - Hardwarefelder (CPU, RAM, Speicher, Betriebssystem, letzter Scan) und Softwareliste auf der Geräteseite
@@ -31,7 +31,22 @@ Bestandio ist ein selbst gehostetes Web-Panel zur Inventarverwaltung (Geräte un
 - Hell/Dunkel folgt dem System; Mobile-first
 - Sicherheits-Header: strikte Content-Security-Policy (ohne `unsafe-inline`), `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors 'none'`, `Permissions-Policy` (Kamera nur für den eigenen Origin)
 
-**Geplant:** portabler Windows-Scanner als .exe (Go), der das Importformat erzeugt.
+### Scanner für Windows (`bestandio-scanner.exe`)
+
+- Doppelklick genügt: keine Installation, keine Admin-Rechte (Manifest `asInvoker`), keine Netzwerkverbindung.
+- Liest Hersteller, Modell, Seriennummer (SMBIOS), Prozessor, RAM, interne Datenträger (Typ, Größe) und Windows-Version; auf Wunsch die installierten Programme („Programme mit erfassen? (j/N)“, Standard Nein).
+- Erfasst **nie** Benutzername, Rechnername, Domäne, IP- oder MAC-Adressen; solche Werte werden zusätzlich aus allen Textfeldern entfernt (`[user]`).
+- Platzhalter-Seriennummern („To be filled by O.E.M.“, „Default string“ …) bleiben leer; das Gerät wird dann beim Import neu angelegt.
+- Ergebnis: `bestandio-scan-JJJJMMTT-HHMMSS.json` neben der .exe (bei schreibgeschütztem Ordner auf dem Desktop) und in der Zwischenablage. Im Webpanel unter „Import“ einfügen oder hochladen.
+- Optionen: `--software`, `--out <Datei oder Ordner>`, `--no-clipboard`, `--lang de|en|tr`. Sonst Sprache nach Windows-Anzeigesprache.
+- Bauen (Go ≥ 1.22, nur Standardbibliothek):
+
+```sh
+go vet ./... && go test ./...
+go build -trimpath -ldflags "-s -w" -o dist/bestandio-scanner.exe ./scanner
+```
+
+Die .exe ist nicht signiert; Windows SmartScreen kann beim ersten Start nachfragen.
 
 ### Voraussetzungen
 
@@ -204,11 +219,19 @@ DB-Tests laufen, wenn `BESTANDIO_TEST_DB_HOST`, `BESTANDIO_TEST_DB_PORT`, `BESTA
 
 > **Achtung:** Die DB-Tests löschen alle Tabellen in dieser Datenbank. Nur eine eigene Test-Datenbank verwenden.
 
-Übersetzungen werden ausschließlich in `lang/i18n.json` gepflegt.
+Übersetzungen werden ausschließlich in `lang/i18n.json` gepflegt (auch die Texte der Scanner-.exe, eingebunden über `lang/embed.go`).
 
 ### Lizenz
 
 MIT – siehe [LICENSE](LICENSE). © 2026 Halil Ayberk Bulut (ARFEP)
+
+### Fremdlizenzen
+
+| Komponente | Version | Lizenz | Ort |
+|---|---|---|---|
+| jsQR (QR-Erkennung im Browser, nur wenn `BarcodeDetector` fehlt) | 1.4.0 | Apache-2.0 | `public/assets/vendor/jsqr-1.4.0/` mit `LICENSE` |
+
+Sonst keine Fremdbibliotheken: kein Composer-Paket, keine Go-Module außerhalb der Standardbibliothek.
 
 ---
 
@@ -225,8 +248,8 @@ Bestandio is a self-hosted inventory web panel for businesses (devices and equip
 - Devices with category, manufacturer, model, serial number, inventory number (unique), location, status (in use / in stock / in repair / retired), purchase date, warranty until, note
 - Device code: every device gets a fixed, random, unique 10-character code from `23456789ABCDEFGHJKMNPQRSTUVWXYZ` that never changes
 - QR codes contain only this device code (no URL); generated by a built-in encoder (ISO/IEC 18004, error correction level Q, SVG) – no library
-- Label printing for a single device or a selection from the list: QR code, device code, inventory number, optional company name; A4 sheet with a configurable grid in mm (columns, rows, margins, gaps) or single labels for label printers (configurable width/height); printing via the browser
-- Settings page for admins (company name, label layout)
+- Label printing for a single device or a selection from the list: QR code, device code, inventory number, optional company name; A4 sheet with a configurable grid in mm (columns, rows, margins, gaps) or single labels for label printers (templates "DYMO 54 × 101 mm", "Zebra 103 × 199 mm" or custom size); QR modules are rounded to whole printer dots (dpi configurable, default 203); printing via the browser
+- Settings page for admins (company name, label template, A4 grid, dpi)
 - Scan page `/scan` for all signed-in users: uses the browser's `BarcodeDetector` when available, otherwise the bundled jsQR 1.4.0 library (Apache-2.0, license at `public/assets/vendor/jsqr-1.4.0/LICENSE`); camera needs HTTPS or `localhost`; photo selection and manual code entry also available; unknown code → "not found"
 - Import of hardware scan data (JSON, see [docs/import-format.md](docs/import-format.md)) for Admin/Editor with preview and confirmation
 - Hardware fields (CPU, RAM, storage, operating system, last scan) and software list on the device page
@@ -239,7 +262,22 @@ Bestandio is a self-hosted inventory web panel for businesses (devices and equip
 - Light/dark follows the system; mobile-first
 - Security headers: strict Content-Security-Policy (no `unsafe-inline`), `X-Content-Type-Options`, `Referrer-Policy`, `frame-ancestors 'none'`, `Permissions-Policy` (camera for the own origin only)
 
-**Planned:** portable Windows scanner .exe (Go) that produces the import format.
+### Windows scanner (`bestandio-scanner.exe`)
+
+- Just double-click: no installation, no admin rights (manifest `asInvoker`), no network connection.
+- Reads manufacturer, model, serial number (SMBIOS), CPU, RAM, internal disks (type, size) and Windows version; optionally the installed programs ("Also record installed programs? (y/N)", default no).
+- **Never** records user name, computer name, domain, IP or MAC addresses; such values are additionally removed from all text fields (`[user]`).
+- Placeholder serial numbers ("To be filled by O.E.M.", "Default string" …) stay empty; the import then creates a new device.
+- Result: `bestandio-scan-YYYYMMDD-HHMMSS.json` next to the .exe (on the desktop if the folder is read-only) and on the clipboard. Paste or upload it in the web panel under "Import".
+- Options: `--software`, `--out <file or folder>`, `--no-clipboard`, `--lang de|en|tr`. Otherwise the language follows the Windows display language.
+- Build (Go ≥ 1.22, standard library only):
+
+```sh
+go vet ./... && go test ./...
+go build -trimpath -ldflags "-s -w" -o dist/bestandio-scanner.exe ./scanner
+```
+
+The .exe is not signed; Windows SmartScreen may ask on first start.
 
 ### Requirements
 
@@ -412,8 +450,16 @@ DB tests run when `BESTANDIO_TEST_DB_HOST`, `BESTANDIO_TEST_DB_PORT`, `BESTANDIO
 
 > **Warning:** DB tests drop all tables in that database. Use a dedicated test database.
 
-Translations are maintained only in `lang/i18n.json`.
+Translations are maintained only in `lang/i18n.json` (including the texts of the scanner .exe, embedded via `lang/embed.go`).
 
 ### License
 
 MIT – see [LICENSE](LICENSE). © 2026 Halil Ayberk Bulut (ARFEP)
+
+### Third-party licenses
+
+| Component | Version | License | Location |
+|---|---|---|---|
+| jsQR (QR detection in the browser, only when `BarcodeDetector` is missing) | 1.4.0 | Apache-2.0 | `public/assets/vendor/jsqr-1.4.0/` with `LICENSE` |
+
+No other third-party code: no Composer packages, no Go modules outside the standard library.
