@@ -245,7 +245,7 @@ $test('Views: every output goes through e(), no inline style/script, no external
     }
 });
 
-$test('Device codes: 1000 generated, no duplicates, only alphabet, random_int not uniqid', function () use ($assert, $phpFiles) {
+$test('Device codes: 1000 created, no duplicates, only alphabet, random_int not uniqid', function () use ($assert, $phpFiles) {
     $codes = [];
     for ($i = 0; $i < 1000; $i++) {
         $codes[] = DeviceCode::generate();

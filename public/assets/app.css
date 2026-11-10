@@ -535,6 +535,11 @@ html.scan-open { overflow: hidden; }
     overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
   }
   .is-app .pagehead:has(> h1:only-child):not(:has(.pagehead-text)) { margin: 0; }
+  /* Categories/locations: a lone count pill under the header looks stray; the count stays for screen readers. */
+  .is-app .pagehead:has(> h1:only-child .count-pill) {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
 
   .tabbar {
     display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;

@@ -144,7 +144,7 @@ final class App
         http_response_code($status);
         header('Content-Type: text/html; charset=utf-8');
         try {
-            echo View::render('error', ['status' => $status, 'messageKey' => $key, 'title' => t('error.title')]);
+            echo View::render('error', ['status' => $status, 'messageKey' => $key, 'title' => t('error.title') . ' ' . $status]);
         } catch (Throwable) {
             echo 'Error ' . $status;
         }

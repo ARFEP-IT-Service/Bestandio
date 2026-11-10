@@ -84,8 +84,11 @@ document.addEventListener('DOMContentLoaded', function () {
   };
   var guarded = [];
   var submitting = false;
+  // After a failed save (422) or a duplicate question (409) the form holds input sent back by the
+  // server that is not saved: it counts as changed from the start.
+  var unsaved = document.body.hasAttribute('data-unsaved');
   document.querySelectorAll('form[data-dirty-guard]').forEach(function (form) {
-    var entry = { form: form, initial: formState(form), touched: false };
+    var entry = { form: form, initial: unsaved ? null : formState(form), touched: unsaved };
     var touch = function () {
       entry.touched = true;
     };

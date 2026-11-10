@@ -43,7 +43,7 @@ $onDevices = $isAt('/devices') && $path !== '/devices/new';
 <link rel="stylesheet" href="<?= e(asset('app.css')) ?>">
 <script src="<?= e(asset('app.js')) ?>" defer></script>
 </head>
-<body class="<?= e($user === null ? 'is-guest' : 'is-app') ?>">
+<body class="<?= e($user === null ? 'is-guest' : 'is-app') ?>"<?php if (in_array(http_response_code(), [409, 422], true)): ?> data-unsaved<?php endif; ?>>
 <header class="topbar">
   <div class="topbar-inner">
     <a class="brand" href="<?= e(url('/')) ?>"><img class="brand-logo" src="<?= e(asset('logo.svg')) ?>" width="34" height="34" alt=""><span class="brand-name">Bestandio</span></a>
