@@ -19,6 +19,16 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 - Installierbar als App (PWA): Manifest, Symbole 192/512 und maskable, Apple-Symbol. Der Service Worker speichert nur statische Dateien unter `assets/`, nie Seiten oder Gerätedaten. CSP nur um `worker-src 'self'` und `manifest-src 'self'` erweitert. Installation braucht HTTPS.
 - Etiketten-Startplatz: Beim Druck auf A4-Bogen zeigt ein Bild des Bogens (nach eingestelltem Raster) die Felder; Antippen/Klicken/Enter wählt den Startplatz, Felder davor sind grau durchgestrichen. Zusätzlich das Feld „Start bei Etikett Nr.“. Gilt nur für den jeweiligen Druck.
 
+#### Geändert
+
+- Kamera-Scan: Das Kamerabild füllt den Bereich zwischen Kopfzeile und unterer Leiste, mit Rahmen und Scan-Linie. Erkannt wird nur, was im Rahmen liegt; vorher wurde das ganze Kamerabild ausgewertet, auch abgeschnittene Teile, und Codes wurden erkannt, bevor sie sichtbar in der Mitte waren. Oben links ✕ zum Beenden, oben rechts ⋯ für die anderen Wege (Foto, Code eingeben). Die Kamera startet weiterhin erst über „Kamera starten“.
+
+#### Behoben
+
+- Handy-Leiste: Der runde Scan-Knopf sah auf allen Seiten ausgewählt aus. Jetzt ist er nur auf der Scan-Seite gefüllt, sonst hell mit türkisem Rand.
+- „Mehr“ auf dem Handy: Schrift war winzig, der Scan-Knopf ragte ins Menü, der Hintergrund war nicht abgedunkelt.
+- Seitenwechsel auf dem Handy: Die untere Leiste kommt jetzt gleich am Anfang der Seite statt am Ende, die springende Fußzeile ist auf dem Handy ausgeblendet (Version steht unter „Mehr“).
+
 ### [0.1.0] - 2026-11-10
 
 Erste Veröffentlichung.
@@ -101,6 +111,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Device page on phones in sections: overview, hardware, programs, history.
 - Installable as an app (PWA): manifest, icons 192/512 and maskable, Apple touch icon. The service worker caches only static files below `assets/`, never pages or device data. CSP extended only by `worker-src 'self'` and `manifest-src 'self'`. Installing requires HTTPS.
 - Label start position: when printing on an A4 sheet, a picture of the sheet (from the configured grid) shows the positions; tap/click/Enter selects the start position, positions before it are greyed out and struck through. Plus a "Start at label no." field. Applies to the current print only.
+
+#### Changed
+
+- Camera scan: the camera view fills the area between header and bottom bar, with a frame and a scan line. Only what is inside the frame is read; before, the whole camera image was analysed, including cropped parts, and codes were detected before they were visibly in the middle. ✕ top left to stop, ⋯ top right for the other ways (photo, enter code). The camera still only starts via "Start camera".
+
+#### Fixed
+
+- Phone bar: the round scan button looked selected on every page. It is now filled only on the scan page, otherwise light with a lagoon ring.
+- "More" on phones: tiny text, the scan button overlapped the menu, the background was not dimmed.
+- Page changes on phones: the bottom bar now comes at the start of the page instead of the end; the jumping footer is hidden on phones (the version is shown under "More").
 
 ### [0.1.0] - 2026-11-10
 

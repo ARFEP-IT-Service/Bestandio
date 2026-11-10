@@ -13,10 +13,24 @@
     <p class="flash flash-error" data-scan-error hidden><?= e(t('scan.camera_error')) ?></p>
     <div class="actions">
       <button type="button" class="btn-primary" data-scan-start><?= e(t('scan.start')) ?></button>
-      <button type="button" class="btn-secondary" data-scan-stop hidden><?= e(t('scan.stop')) ?></button>
     </div>
-    <video class="scan-video" data-scan-video playsinline muted hidden></video>
-    <p class="hint" data-scan-status hidden><?= e(t('scan.searching')) ?></p>
+    <div class="scan-live" data-scan-live role="dialog" aria-modal="true" aria-label="<?= e(t('scan.camera')) ?>" hidden>
+      <video class="scan-video" data-scan-video playsinline muted></video>
+      <div class="scan-frame" data-scan-frame aria-hidden="true"><span class="scan-line"></span></div>
+      <p class="scan-live-hint"><?= e(t('scan.searching')) ?></p>
+      <div class="scan-live-bar">
+        <button type="button" class="scan-live-btn" data-scan-stop aria-label="<?= e(t('scan.stop')) ?>" title="<?= e(t('scan.stop')) ?>">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <button type="button" class="scan-live-btn" data-scan-menu-toggle aria-expanded="false" aria-controls="scan-live-menu" aria-label="<?= e(t('scan.more_options')) ?>" title="<?= e(t('scan.more_options')) ?>">
+          <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="currentColor"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg>
+        </button>
+      </div>
+      <ul class="scan-live-menu" id="scan-live-menu" data-scan-menu hidden>
+        <li><button type="button" data-scan-use-photo><?= e(t('scan.photo_choose')) ?></button></li>
+        <li><button type="button" data-scan-use-manual><?= e(t('scan.manual')) ?></button></li>
+      </ul>
+    </div>
   </section>
 
   <section class="panel">

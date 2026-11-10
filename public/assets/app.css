@@ -415,7 +415,47 @@ details.panel .table-wrap { box-shadow: none; }
   .scan > .panel:first-child { grid-row: span 2; }
 }
 .scan h2 { margin-top: 0; }
-.scan-video { display: block; width: 100%; max-width: 36rem; margin-top: 1rem; border-radius: var(--r); background: #000; aspect-ratio: 4 / 3; object-fit: cover; }
+/* Live camera: fills the screen between header and tab bar (scan.js sets top/bottom);
+ * only the frame in the middle is read (scan.js crops to it). */
+html.scan-open { overflow: hidden; }
+.scan-live { position: fixed; inset: 0; z-index: 15; overflow: hidden; background: #000; }
+.scan-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.scan-frame {
+  position: absolute; left: 50%; top: 45%; width: min(72vw, 52vh, 20rem); aspect-ratio: 1; transform: translate(-50%, -50%);
+  border: 3px solid rgba(255, 255, 255, 0.92); border-radius: 1.25rem; overflow: hidden;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.5);
+}
+.scan-line {
+  position: absolute; left: 8%; right: 8%; top: 8%; height: 3px; border-radius: 3px;
+  background: var(--tag); box-shadow: 0 0 12px 2px rgba(255, 210, 63, 0.7);
+  animation: scan-sweep 1.8s ease-in-out infinite alternate;
+}
+@keyframes scan-sweep { from { top: 8%; } to { top: 92%; } }
+@media (prefers-reduced-motion: reduce) { .scan-line { animation: none; top: 50%; } }
+.scan-live-hint {
+  position: absolute; left: 0; right: 0; top: calc(45% + min(36vw, 26vh, 10rem) + 1.25rem); margin: 0; padding: 0 1.5rem;
+  color: #fff; text-align: center; font-weight: 600; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.scan-live-bar {
+  position: absolute; left: 0; right: 0; top: 0; display: flex; justify-content: space-between;
+  padding: calc(0.75rem + env(safe-area-inset-top)) calc(0.75rem + env(safe-area-inset-right)) 0 calc(0.75rem + env(safe-area-inset-left));
+}
+.scan-live-btn {
+  display: flex; align-items: center; justify-content: center; width: 3rem; height: 3rem; padding: 0; border: 0; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45); color: #fff; cursor: pointer;
+}
+.scan-live-btn:hover { background: rgba(0, 0, 0, 0.65); }
+.scan-live-btn:focus-visible, .scan-live-menu button:focus-visible { outline: 3px solid var(--tag); outline-offset: 2px; }
+.scan-live-menu {
+  position: absolute; top: calc(4.25rem + env(safe-area-inset-top)); right: calc(0.75rem + env(safe-area-inset-right));
+  min-width: 15rem; margin: 0; padding: 0.4rem; list-style: none;
+  background: var(--surface); border-radius: var(--r); box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+.scan-live-menu button {
+  display: block; width: 100%; min-height: 44px; padding: 0.65rem 0.9rem; border: 0; border-radius: calc(var(--r) - 4px);
+  background: none; color: var(--ink); font: inherit; text-align: left; cursor: pointer;
+}
+.scan-live-menu button:hover { background: var(--lagoon-soft); }
 
 .pager { display: flex; gap: 0.75rem; align-items: center; justify-content: center; margin: 1.5rem 0; color: var(--ink-muted); }
 
@@ -480,20 +520,27 @@ details.panel .table-wrap { box-shadow: none; }
 
   /* Scan: the big round button in the middle. */
   .tab-scan { justify-content: flex-end; }
+  /* Not selected: light circle with a lagoon ring, so it never looks like the active tab. */
   .tab-scan-button {
     display: flex; align-items: center; justify-content: center; width: 3.6rem; height: 3.6rem; margin-top: -1.6rem;
-    border-radius: 50%; background: var(--lagoon); color: var(--accent-text);
-    box-shadow: 0 6px 16px rgba(14, 124, 134, 0.35), 0 0 0 4px var(--surface);
+    border-radius: 50%; background: var(--surface); color: var(--lagoon); border: 2px solid var(--lagoon);
+    box-shadow: 0 6px 16px rgba(19, 32, 43, 0.14), 0 0 0 4px var(--surface);
   }
   .tab-scan-button .tab-icon { width: 1.7rem; height: 1.7rem; }
-  .tab-scan[aria-current="page"] .tab-scan-button { background: var(--lagoon-strong); }
+  /* Selected (on the scan page): filled. */
+  .tab-scan[aria-current="page"] .tab-scan-button {
+    background: var(--lagoon); border-color: var(--lagoon); color: var(--accent-text);
+    box-shadow: 0 6px 16px rgba(14, 124, 134, 0.35), 0 0 0 4px var(--surface);
+  }
 
-  /* More: a sheet above the bar. */
+  /* More: a sheet above the bar (clear of the scan circle), the page behind it dimmed.
+   * Own font size: the sheet sits inside the tab and would inherit the small tab label size. */
   .more-sheet {
-    position: fixed; left: 0.75rem; right: 0.75rem; bottom: calc(4.4rem + env(safe-area-inset-bottom));
-    max-height: 70vh; overflow-y: auto; padding: 0.5rem; z-index: 21;
+    position: fixed; left: 0.75rem; right: 0.75rem; bottom: calc(5.6rem + env(safe-area-inset-bottom));
+    max-height: calc(100vh - 11rem); overflow-y: auto; padding: 0.5rem; z-index: 21;
+    font-size: 1rem; font-weight: 400; text-align: left; cursor: auto;
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg);
-    box-shadow: 0 -4px 30px rgba(19, 32, 43, 0.18); animation: flash-in 0.18s ease-out;
+    box-shadow: 0 0 0 100vmax rgba(19, 32, 43, 0.4), 0 8px 30px rgba(19, 32, 43, 0.25); animation: flash-in 0.18s ease-out;
   }
   .more-list { list-style: none; margin: 0; padding: 0; }
   .more-list a {
@@ -506,6 +553,10 @@ details.panel .table-wrap { box-shadow: none; }
   .more-lang select { flex: 1; }
   .more-logout { margin: 0; padding: 0.25rem 0.4rem 0.4rem; }
   .more-logout button { width: 100%; }
+  .more-version { margin: 0; padding: 0.1rem 0.9rem 0.3rem; font-size: 0.8rem; color: var(--ink-muted); text-align: center; }
+
+  /* Footer: on phones the version is in "More"; a footer would jump around while a page loads. */
+  .is-app .footer { display: none; }
 
   /* Device page: cards with sections. */
   .device-section { margin-bottom: 1.25rem; }

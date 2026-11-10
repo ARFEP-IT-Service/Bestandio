@@ -80,18 +80,6 @@ $onDevices = $isAt('/devices') && $path !== '/devices/new';
     <?php endif; ?>
   </div>
 </header>
-<main class="container">
-  <?php foreach ($flashes as $f): ?>
-  <p class="flash flash-<?= e($f['type']) ?>" role="status"><?= e(t($f['key'], $f['params'])) ?></p>
-  <?php endforeach; ?>
-  <?php require $__template; ?>
-</main>
-<footer class="footer">
-  <span>Bestandio <?= e(BESTANDIO_VERSION) ?></span>
-  <?php if ($user !== null): ?>
-  <span><?= e(t('nav.signed_in_as', ['name' => $user['username'], 'role' => t('role.' . $user['role'])])) ?></span>
-  <?php endif; ?>
-</footer>
 <?php if ($user !== null): ?>
 <nav class="tabbar" aria-label="<?= e(t('nav.label')) ?>">
   <a class="tab" href="<?= e(url('/devices')) ?>"<?php if ($onDevices): ?> aria-current="page"<?php endif; ?>>
@@ -132,9 +120,22 @@ $onDevices = $isAt('/devices') && $path !== '/devices/new';
         <input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
         <button type="submit" class="btn-danger"><?= e(t('nav.logout')) ?> · <?= e($user['username']) ?></button>
       </form>
+      <p class="more-version">Bestandio <?= e(BESTANDIO_VERSION) ?></p>
     </div>
   </details>
 </nav>
 <?php endif; ?>
+<main class="container">
+  <?php foreach ($flashes as $f): ?>
+  <p class="flash flash-<?= e($f['type']) ?>" role="status"><?= e(t($f['key'], $f['params'])) ?></p>
+  <?php endforeach; ?>
+  <?php require $__template; ?>
+</main>
+<footer class="footer">
+  <span>Bestandio <?= e(BESTANDIO_VERSION) ?></span>
+  <?php if ($user !== null): ?>
+  <span><?= e(t('nav.signed_in_as', ['name' => $user['username'], 'role' => t('role.' . $user['role'])])) ?></span>
+  <?php endif; ?>
+</footer>
 </body>
 </html>

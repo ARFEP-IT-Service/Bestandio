@@ -12,14 +12,35 @@
   var video = q('data-scan-video');
   var startBtn = q('data-scan-start');
   var stopBtn = q('data-scan-stop');
-  var status = q('data-scan-status');
+  var live = q('data-scan-live');
+  var frame = q('data-scan-frame');
+  var menu = q('data-scan-menu');
+  var menuToggle = q('data-scan-menu-toggle');
   var canvas = document.createElement('canvas');
   var ctx = canvas.getContext('2d', { willReadFrequently: true });
+  var crop = document.createElement('canvas');
+  var cropCtx = crop.getContext('2d', { willReadFrequently: true });
   var stream = null;
   var timer = null;
   var detectorPromise = null;
 
   function show(el, on) { el.hidden = !on; }
+
+  // Keep header and tab bar visible: the camera fills only the space between them.
+  function fitLive() {
+    var top = document.querySelector('.topbar');
+    var bar = document.querySelector('.tabbar');
+    live.style.top = (top ? Math.max(0, top.getBoundingClientRect().bottom) : 0) + 'px';
+    live.style.bottom = (bar && getComputedStyle(bar).display !== 'none' ? Math.max(0, window.innerHeight - bar.getBoundingClientRect().top) : 0) + 'px';
+  }
+
+  function setMenu(open) {
+    show(menu, open);
+    menuToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) {
+      menu.querySelector('button').focus();
+    }
+  }
 
   function submit(text) {
     stop();
@@ -78,13 +99,32 @@
     return detectorPromise;
   }
 
+  // Copies the part of the camera image that lies inside the on-screen frame into `crop`.
+  // The video is shown with object-fit: cover, so screen and camera pixels differ by one scale and offset.
+  function cropToFrame() {
+    var vw = video.videoWidth;
+    var vh = video.videoHeight;
+    var box = video.getBoundingClientRect();
+    var f = frame.getBoundingClientRect();
+    var scale = Math.max(box.width / vw, box.height / vh);
+    var x = Math.max(0, (f.left - box.left - (box.width - vw * scale) / 2) / scale);
+    var y = Math.max(0, (f.top - box.top - (box.height - vh * scale) / 2) / scale);
+    var w = Math.min(vw - x, f.width / scale);
+    var h = Math.min(vh - y, f.height / scale);
+    var out = Math.min(1, 800 / Math.max(w, h));
+    crop.width = Math.round(w * out);
+    crop.height = Math.round(h * out);
+    cropCtx.drawImage(video, x, y, w, h, 0, 0, crop.width, crop.height);
+  }
+
   async function tick() {
-    if (!stream || video.readyState < 2) {
+    if (!stream || video.readyState < 2 || !video.videoWidth) {
       return;
     }
     try {
       var det = await getDetector();
-      var text = await det.detect(video, video.videoWidth, video.videoHeight);
+      cropToFrame();
+      var text = await det.detect(crop, crop.width, crop.height);
       if (text) {
         submit(text);
       }
@@ -92,6 +132,9 @@
   }
 
   async function start() {
+    if (stream) {
+      return;
+    }
     show(q('data-scan-error'), false);
     try {
       stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
@@ -100,10 +143,11 @@
       return;
     }
     video.srcObject = stream;
-    show(video, true);
-    show(status, true);
-    show(startBtn, false);
-    show(stopBtn, true);
+    window.scrollTo(0, 0);
+    show(live, true);
+    document.documentElement.classList.add('scan-open');
+    fitLive();
+    stopBtn.focus();
     await video.play();
     getDetector();
     timer = window.setInterval(tick, 300);
@@ -119,10 +163,12 @@
       stream = null;
     }
     video.srcObject = null;
-    show(video, false);
-    show(status, false);
-    show(stopBtn, false);
-    show(startBtn, true);
+    setMenu(false);
+    if (!live.hidden) {
+      show(live, false);
+      document.documentElement.classList.remove('scan-open');
+      startBtn.focus();
+    }
   }
 
   // Camera only in a secure context (HTTPS or localhost).
@@ -132,6 +178,40 @@
   } else {
     startBtn.addEventListener('click', start);
     stopBtn.addEventListener('click', stop);
+    menuToggle.addEventListener('click', function () { setMenu(menu.hidden); });
+    // Other ways: close the camera first, then hand over to the photo picker or the code field.
+    q('data-scan-use-photo').addEventListener('click', function () {
+      stop();
+      q('data-scan-photo').click();
+    });
+    q('data-scan-use-manual').addEventListener('click', function () {
+      stop();
+      input.focus();
+      input.scrollIntoView({ block: 'center' });
+    });
+    live.addEventListener('click', function (event) {
+      if (!menu.hidden && !menu.contains(event.target) && !menuToggle.contains(event.target)) {
+        setMenu(false);
+      }
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Escape' || live.hidden) {
+        return;
+      }
+      if (!menu.hidden) {
+        setMenu(false);
+        menuToggle.focus();
+      } else {
+        stop();
+      }
+    });
+    // Never leave the camera running in the background.
+    window.addEventListener('pagehide', stop);
+    window.addEventListener('resize', function () {
+      if (!live.hidden) {
+        fitLive();
+      }
+    });
   }
 
   q('data-scan-photo').addEventListener('change', async function (event) {
