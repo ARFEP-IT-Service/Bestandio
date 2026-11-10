@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"bestandio"
 	"bestandio/lang"
 	"bestandio/scanner/internal/rsrc"
 )
@@ -275,5 +276,20 @@ func TestSystemUUID(t *testing.T) {
 	r := newReport(time.Now(), Hardware{Manufacturer: "Dell", UUID: "00000000-0000-0000-0000-000000000000"}, nil, nil)
 	if b, _ := r.marshal(false); bytes.Contains(b, []byte(`"uuid"`)) {
 		t.Fatal("placeholder uuid must be omitted")
+	}
+}
+
+func TestVersionFlag(t *testing.T) {
+	var out bytes.Buffer
+	if code := run([]string{"--version"}, strings.NewReader(""), &out); code != 0 {
+		t.Fatalf("exit %d", code)
+	}
+	want := "bestandio-scanner " + bestandio.Version() + "\n"
+	if out.String() != want || !regexp.MustCompile(`^\d+\.\d+\.\d+$`).MatchString(bestandio.Version()) {
+		t.Fatalf("got %q, want %q", out.String(), want)
+	}
+	raw, _ := os.ReadFile("../VERSION")
+	if strings.TrimSpace(string(raw)) != bestandio.Version() {
+		t.Fatal("version must come from the VERSION file")
 	}
 }

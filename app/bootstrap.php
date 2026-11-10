@@ -3,7 +3,8 @@
 declare(strict_types=1);
 
 define('BESTANDIO_ROOT', dirname(__DIR__));
-define('BESTANDIO_VERSION', '0.1.0');
+// The version is stored only in the VERSION file.
+define('BESTANDIO_VERSION', trim((string) @file_get_contents(BESTANDIO_ROOT . '/VERSION')) ?: 'dev');
 
 spl_autoload_register(static function (string $class): void {
     $prefix = 'Bestandio\\';

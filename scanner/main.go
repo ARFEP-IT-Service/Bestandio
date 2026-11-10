@@ -15,6 +15,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"bestandio"
 )
 
 func main() {
@@ -29,11 +31,16 @@ func run(args []string, stdin io.Reader, stdout io.Writer) int {
 	out := fs.String("out", "", t.get("scanner.flag_out"))
 	noClipboard := fs.Bool("no-clipboard", false, t.get("scanner.flag_no_clipboard"))
 	language := fs.String("lang", "", t.get("scanner.flag_lang"))
+	showVersion := fs.Bool("version", false, t.get("scanner.flag_version"))
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 	if *language == "de" || *language == "en" || *language == "tr" {
 		t = loadTexts(*language)
+	}
+	if *showVersion {
+		fmt.Fprintln(stdout, "bestandio-scanner "+bestandio.Version())
+		return 0
 	}
 	interactive := isConsole(stdin)
 	in := bufio.NewReader(stdin)
@@ -45,7 +52,7 @@ func run(args []string, stdin io.Reader, stdout io.Writer) int {
 		}
 	}()
 
-	fmt.Fprintln(stdout, t.get("scanner.title"))
+	fmt.Fprintln(stdout, t.get("scanner.title")+" · "+bestandio.Version())
 	fmt.Fprintln(stdout, t.get("scanner.privacy"))
 	fmt.Fprintln(stdout)
 

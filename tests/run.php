@@ -184,6 +184,12 @@ $test('System UUID: canonical form, placeholders count as empty', function () us
     $assert($d === null && $err[0][0] === 'import.error.invalid');
 });
 
+$test('Version comes only from the VERSION file; sample data lives in tests/fixtures', function () use ($assert) {
+    $assert(BESTANDIO_VERSION === trim((string) file_get_contents(BESTANDIO_ROOT . '/VERSION')));
+    $assert((bool) preg_match('/^\d+\.\d+\.\d+$/', BESTANDIO_VERSION), 'semantic version');
+    $assert(is_file(BESTANDIO_ROOT . '/tests/fixtures/sample-data.sql') && !is_file(BESTANDIO_ROOT . '/docs/sample-data.sql'));
+});
+
 $test('CSRF token check', function () use ($assert) {
     $_SESSION = [];
     $assert(!Csrf::valid('x'), 'no token in session');

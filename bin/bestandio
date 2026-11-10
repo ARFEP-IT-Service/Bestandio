@@ -22,7 +22,7 @@ if (!in_array($command, ['migrate', 'status', 'sample-data'], true)) {
     fwrite(STDOUT, "Usage: php bin/bestandio <command>\n\n"
         . "  migrate               apply pending migrations\n"
         . "  status                list applied and pending migrations\n"
-        . "  sample-data [--force] load docs/sample-data.sql (30 example devices); refuses if the\n"
+        . "  sample-data [--force] load tests/fixtures/sample-data.sql (30 example devices); refuses if the\n"
         . "                        database already has devices unless --force is given\n");
     exit($command === 'help' ? 0 : 2);
 }
@@ -69,7 +69,7 @@ try {
             fwrite(STDERR, "Refused: the database already contains $devices devices. Use --force to add the sample data anyway.\n");
             exit(3);
         }
-        foreach (Migrator::split((string) file_get_contents(BESTANDIO_ROOT . '/docs/sample-data.sql')) as $statement) {
+        foreach (Migrator::split((string) file_get_contents(BESTANDIO_ROOT . '/tests/fixtures/sample-data.sql')) as $statement) {
             $pdo->exec($statement);
         }
         $after = (int) $pdo->query('SELECT COUNT(*) FROM devices')->fetchColumn();

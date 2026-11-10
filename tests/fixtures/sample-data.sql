@@ -1,6 +1,6 @@
 -- Bestandio: Beispieldaten / sample data
 -- 10 Kategorien, 8 Standorte, 30 Geräte mit Gerätecode, Hardware/Programme für 4 bzw. 3 Geräte, Verlauf.
--- Einspielen: mysql --default-character-set=utf8mb4 <datenbank> < docs/sample-data.sql
+-- Einspielen nur über: php bin/bestandio sample-data   (verweigert bei vorhandenen Geräten, außer --force)
 -- Voraussetzung: Migrationen 001–004 ausgeführt und mindestens ein Admin angelegt (Setup).
 -- Mehrfaches Einspielen legt nichts doppelt an (INSERT IGNORE über eindeutige Namen/Inventarnummern).
 
