@@ -40,7 +40,8 @@ Bestandio ist ein selbst gehostetes Web-Panel zur Inventarverwaltung (Geräte un
 - Erfasst **nie** Benutzername, Rechnername, Domäne, IP- oder MAC-Adressen; solche Werte werden zusätzlich aus allen Textfeldern entfernt (`[user]`).
 - Platzhalter-Seriennummern („To be filled by O.E.M.“, „Default string“ …) bleiben leer; das Gerät wird dann beim Import neu angelegt.
 - Ergebnis: `bestandio-scan-JJJJMMTT-HHMMSS.json` neben der .exe (bei schreibgeschütztem Ordner auf dem Desktop) und in der Zwischenablage. Im Webpanel unter „Import“ einfügen oder hochladen.
-- Optionen: `--software`, `--out <Datei oder Ordner>`, `--no-clipboard`, `--lang de|en|tr`. Sonst Sprache nach Windows-Anzeigesprache.
+- Optionen: `--software`, `--out <Datei oder Ordner>`, `--no-clipboard`, `--lang de|en|tr`, `--version` (Version ausgeben). Sonst Sprache nach Windows-Anzeigesprache.
+- Download: Die Releases enthalten die Datei `bestandio-scan-<version>-windows-amd64.exe` (z. B. `bestandio-scan-0.1.0-windows-amd64.exe`).
 - Bauen (Go ≥ 1.22, nur Standardbibliothek):
 
 ```sh
@@ -55,6 +56,7 @@ Die .exe ist nicht signiert; Windows SmartScreen kann beim ersten Start nachfrag
 - PHP >= 8.3 mit den Erweiterungen `pdo_mysql`, `mbstring`, `openssl`, `fileinfo` (`intl` wird nicht benötigt)
 - MySQL >= 8.4 oder MariaDB >= 10.11, `utf8mb4` (ältere Versionen lehnt die Einrichtung ab)
 - Webserver: Apache (mit `mod_rewrite`) oder nginx + PHP-FPM
+- HTTPS (Pflicht; die Kamera zum Scannen braucht einen Secure Context)
 - Keine Composer-Abhängigkeiten, kein Build-Schritt, kein CDN, keine externen Ressourcen zur Laufzeit
 
 ### Verzeichnisstruktur
@@ -68,11 +70,28 @@ lang/i18n.json   alle UI-Texte DE/EN/TR – die einzige Stelle zum Bearbeiten/Er
 bin/bestandio    Kommandozeilenwerkzeug
 tests/run.php    eigener Test-Runner (ohne externe Pakete)
 docs/            Beispielkonfigurationen für Webserver, Importformat
+VERSION          Versionsnummer (einzige Stelle)
 ```
 
 ### Installation
 
-1. **Leere Datenbank und Benutzer anlegen** (Rechte nur auf diese Datenbank):
+Die Beispiele gehen von `/var/www/bestandio`, dem Webserver-Benutzer bzw. der Gruppe `www-data` und einem Linux-Server aus; Pfade und Namen anpassen.
+
+1. **Code holen** – per Git oder als Release-ZIP (entpacken nach `/var/www/bestandio`):
+
+   ```sh
+   git clone <repository-url> /var/www/bestandio
+   ```
+
+2. **Webserver einrichten:** Document Root ist ausschließlich `public/` (siehe [Webserver](#webserver)), HTTPS aktivieren (siehe [HTTPS](#https)).
+3. **`config/` nur für die Dauer des Setups für den Webserver-Benutzer beschreibbar machen:**
+
+   ```sh
+   chown root:www-data /var/www/bestandio/config
+   chmod 770 /var/www/bestandio/config
+   ```
+
+4. **Leere Datenbank und Benutzer anlegen** (Rechte nur auf diese Datenbank):
 
    ```sql
    CREATE DATABASE bestandio CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -81,15 +100,25 @@ docs/            Beispielkonfigurationen für Webserver, Importformat
    FLUSH PRIVILEGES;
    ```
 
-2. **Dateien auf den Server kopieren** und den Webserver einrichten (siehe [Webserver](#webserver)).
-3. **`config/` für den Webserver-Benutzer beschreibbar machen** (nur für das Setup, danach wieder schreibgeschützt möglich):
+5. **`https://ihr-host/setup` im Browser öffnen.**
+6. **Datenbankdaten eingeben:** DB-Host, Port, Name, Benutzer und Passwort.
+7. **„Verbindung testen“ klicken.** Das Setup prüft dabei auch die PHP- und Datenbankversion und lehnt zu alte Versionen ab.
+8. **Ersten Admin anlegen:** Benutzername und Passwort (mind. 12 Zeichen) eingeben und absenden. Das Setup führt die Migrationen aus, legt den Admin an und schreibt `config/config.php`. Danach ist `/setup` gesperrt (Antwort 403).
+9. **Konfiguration schreibgeschützt machen** – `config/config.php` nur lesbar für die Gruppe des Webservers, `config/` nicht mehr beschreibbar:
 
    ```sh
-   chown www-data /var/www/bestandio/config
+   chown root:www-data /var/www/bestandio/config/config.php
+   chmod 640 /var/www/bestandio/config/config.php
+   chmod 750 /var/www/bestandio/config
    ```
 
-4. **`https://ihr-host/setup` im Browser öffnen:** DB-Host, Port, Name, Benutzer und Passwort eingeben, „Verbindung testen“, dann Benutzername und Passwort (mind. 12 Zeichen) des ersten Admins eingeben und absenden. Das Setup führt die Migrationen aus, legt den Admin an und schreibt `config/config.php`. Danach ist `/setup` gesperrt (Antwort 403).
-5. **Anmelden.**
+10. **Anmelden.**
+
+#### Dateirechte
+
+- Der Code gehört einem Deploy-Benutzer oder `root` und ist für den PHP-Benutzer nur lesbar.
+- Schreibrechte braucht PHP nur auf `config/`, und das nur während des Setups. Danach muss `config/config.php` für PHP nur lesbar sein (z. B. `640`, Besitzer `root`, Gruppe `www-data`).
+- Sonst darf PHP nichts beschreiben: Bestandio schreibt keine weiteren Dateien (hochgeladene Importdateien werden nur gelesen, Fehler gehen ins PHP-Fehlerlog, es gibt keinen Cache). Sessions liegen im Standard-Session-Pfad von PHP.
 
 #### Alternative: Konfiguration von Hand
 
@@ -197,22 +226,38 @@ HTTPS ist Pflicht. Die Kamera zum Scannen funktioniert nur über HTTPS (oder auf
 ```sh
 php bin/bestandio migrate   # ausstehende Migrationen anwenden (Tabelle schema_migrations)
 php bin/bestandio status    # angewendete/ausstehende Migrationen auflisten
+php bin/bestandio sample-data   # 30 Beispielgeräte laden (siehe Entwicklung)
 ```
+
+### Version
+
+Die Versionsnummer steht an genau einer Stelle: in der Datei `VERSION` im Wurzelverzeichnis. Das Web-Panel zeigt sie in der Fußzeile, der Scanner gibt sie mit `--version` aus. Bestandio folgt [Semantic Versioning](https://semver.org/lang/de/); Änderungen stehen in [CHANGELOG.md](CHANGELOG.md).
 
 ### Updates
 
-Dateien ersetzen, dann (Migrationen können `.sql`- oder `.php`-Dateien sein):
+1. **Vorher ein Backup anlegen** (siehe [Backups](#backups)).
+2. **Neuen Code holen:** `git pull` im Installationsverzeichnis oder die Dateien durch die aus dem Release-ZIP ersetzen (`config/config.php` dabei behalten).
+3. **Migrationen ausführen** (Migrationen können `.sql`- oder `.php`-Dateien sein):
 
-```sh
-php bin/bestandio migrate
-```
+   ```sh
+   php bin/bestandio migrate
+   ```
 
 ### Backups
 
-Die Datenbank (z. B. mit `mysqldump`) und `config/config.php` sichern:
+Die Datenbank und `config/config.php` sichern. `-p` fragt das Passwort ab – das Passwort nie auf der Kommandozeile angeben:
 
 ```sh
-mysqldump --single-transaction -u bestandio -p bestandio > bestandio-$(date +%F).sql
+mysqldump --single-transaction -u bestandio -p bestandio > backup.sql
+cp /var/www/bestandio/config/config.php config.php.backup
+```
+
+`config.php` enthält das Datenbankpasswort – Backups entsprechend geschützt aufbewahren.
+
+Wiederherstellen:
+
+```sh
+mysql -u bestandio -p bestandio < backup.sql
 ```
 
 ### Entwicklung
@@ -223,6 +268,8 @@ php tests/run.php                 # Tests ausführen
 php bin/bestandio sample-data      # Beispieldaten (30 Geräte), nur auf leerer DB; --force erzwingt
 ```
 
+Beispieldaten werden ausschließlich mit `php bin/bestandio sample-data` geladen – nie automatisch und nicht über `/setup`. Der Befehl setzt ein abgeschlossenes Setup voraus und verweigert, wenn bereits Geräte vorhanden sind (außer mit `--force`).
+
 DB-Tests laufen, wenn `BESTANDIO_TEST_DB_HOST`, `BESTANDIO_TEST_DB_PORT`, `BESTANDIO_TEST_DB_NAME`, `BESTANDIO_TEST_DB_USER` und `BESTANDIO_TEST_DB_PASS` gesetzt sind.
 
 > **Achtung:** Die DB-Tests löschen alle Tabellen in dieser Datenbank. Nur eine eigene Test-Datenbank verwenden.
@@ -232,6 +279,8 @@ DB-Tests laufen, wenn `BESTANDIO_TEST_DB_HOST`, `BESTANDIO_TEST_DB_PORT`, `BESTA
 ### Lizenz
 
 MIT – siehe [LICENSE](LICENSE). © 2026 Halil Ayberk Bulut (ARFEP)
+
+Weitere Dokumente: [CHANGELOG.md](CHANGELOG.md) (Änderungen je Version), [SECURITY.md](SECURITY.md) (Sicherheitslücken vertraulich melden), [CONTRIBUTING.md](CONTRIBUTING.md) (Regeln für Beiträge).
 
 ### Fremdlizenzen
 
@@ -277,7 +326,8 @@ Bestandio is a self-hosted inventory web panel for businesses (devices and equip
 - **Never** records user name, computer name, domain, IP or MAC addresses; such values are additionally removed from all text fields (`[user]`).
 - Placeholder serial numbers ("To be filled by O.E.M.", "Default string" …) stay empty; the import then creates a new device.
 - Result: `bestandio-scan-YYYYMMDD-HHMMSS.json` next to the .exe (on the desktop if the folder is read-only) and on the clipboard. Paste or upload it in the web panel under "Import".
-- Options: `--software`, `--out <file or folder>`, `--no-clipboard`, `--lang de|en|tr`. Otherwise the language follows the Windows display language.
+- Options: `--software`, `--out <file or folder>`, `--no-clipboard`, `--lang de|en|tr`, `--version` (print the version). Otherwise the language follows the Windows display language.
+- Download: releases contain the file `bestandio-scan-<version>-windows-amd64.exe` (e.g. `bestandio-scan-0.1.0-windows-amd64.exe`).
 - Build (Go ≥ 1.22, standard library only):
 
 ```sh
@@ -292,6 +342,7 @@ The .exe is not signed; Windows SmartScreen may ask on first start.
 - PHP >= 8.3 with extensions `pdo_mysql`, `mbstring`, `openssl`, `fileinfo` (`intl` is not required)
 - MySQL >= 8.4 or MariaDB >= 10.11, `utf8mb4` (setup rejects older versions)
 - Web server: Apache (with `mod_rewrite`) or nginx + PHP-FPM
+- HTTPS (required; camera scanning needs a secure context)
 - No Composer dependencies, no build step, no CDN, no external resources at runtime
 
 ### Directory layout
@@ -305,11 +356,28 @@ lang/i18n.json   all UI texts DE/EN/TR – the single place to edit or add trans
 bin/bestandio    command-line tool
 tests/run.php    own test runner (no external packages)
 docs/            example web server configurations, import format
+VERSION          version number (single source)
 ```
 
 ### Installation
 
-1. **Create an empty database and a user** with rights only on it:
+The examples assume `/var/www/bestandio`, the web server user/group `www-data` and a Linux server; adjust paths and names.
+
+1. **Get the code** – via Git or as a release ZIP (extract to `/var/www/bestandio`):
+
+   ```sh
+   git clone <repository-url> /var/www/bestandio
+   ```
+
+2. **Configure the web server:** the document root is `public/` only (see [Web server](#web-server)); enable HTTPS (see [HTTPS](#https-1)).
+3. **Make `config/` writable by the web server user, only for the duration of the setup:**
+
+   ```sh
+   chown root:www-data /var/www/bestandio/config
+   chmod 770 /var/www/bestandio/config
+   ```
+
+4. **Create an empty database and a user** with rights only on it:
 
    ```sql
    CREATE DATABASE bestandio CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -318,15 +386,25 @@ docs/            example web server configurations, import format
    FLUSH PRIVILEGES;
    ```
 
-2. **Copy the files to the server** and configure the web server (see [Web server](#web-server)).
-3. **Make `config/` writable by the web server user** (only for the setup; can be made read-only again afterwards):
+5. **Open `https://your-host/setup` in the browser.**
+6. **Enter the database details:** DB host, port, name, user and password.
+7. **Click "Test connection".** Setup also checks the PHP and database versions and rejects versions that are too old.
+8. **Create the first admin:** enter user name and password (min. 12 characters) and submit. Setup runs the migrations, creates the admin and writes `config/config.php`. After that `/setup` is locked (returns 403).
+9. **Make the configuration read-only** – `config/config.php` readable only by the web server group, `config/` no longer writable:
 
    ```sh
-   chown www-data /var/www/bestandio/config
+   chown root:www-data /var/www/bestandio/config/config.php
+   chmod 640 /var/www/bestandio/config/config.php
+   chmod 750 /var/www/bestandio/config
    ```
 
-4. **Open `https://your-host/setup` in the browser:** enter DB host, port, name, user and password, click "Test connection", then enter the first admin's user name and password (min. 12 characters) and submit. Setup runs the migrations, creates the admin and writes `config/config.php`. After that `/setup` is locked (returns 403).
-5. **Log in.**
+10. **Log in.**
+
+#### File permissions
+
+- The code is owned by a deploy user or `root` and is read-only for the PHP user.
+- PHP needs write access only to `config/`, and only during setup. Afterwards `config/config.php` only has to be readable by PHP (e.g. `640`, owner `root`, group `www-data`).
+- Nothing else may be writable by PHP: Bestandio writes no other files (uploaded import files are only read, errors go to PHP's error log, there is no cache). Sessions are stored in PHP's default session path.
 
 #### Alternative: configure by hand
 
@@ -434,22 +512,38 @@ HTTPS is required. The camera for scanning only works over HTTPS (or on `localho
 ```sh
 php bin/bestandio migrate   # apply pending migrations (tracked in table schema_migrations)
 php bin/bestandio status    # list applied/pending migrations
+php bin/bestandio sample-data   # load 30 example devices (see Development)
 ```
+
+### Version
+
+The version number lives in exactly one place: the file `VERSION` in the repository root. The web panel shows it in the footer, the scanner prints it with `--version`. Bestandio follows [Semantic Versioning](https://semver.org/); changes are listed in [CHANGELOG.md](CHANGELOG.md).
 
 ### Updates
 
-Replace the files, then (migrations may be `.sql` or `.php` files):
+1. **Make a backup first** (see [Backups](#backups-1)).
+2. **Get the new code:** `git pull` in the installation directory, or replace the files with those from the release ZIP (keep `config/config.php`).
+3. **Run the migrations** (migrations may be `.sql` or `.php` files):
 
-```sh
-php bin/bestandio migrate
-```
+   ```sh
+   php bin/bestandio migrate
+   ```
 
 ### Backups
 
-Back up the database (e.g. with `mysqldump`) and `config/config.php`:
+Back up the database and `config/config.php`. `-p` prompts for the password – never put the password on the command line:
 
 ```sh
-mysqldump --single-transaction -u bestandio -p bestandio > bestandio-$(date +%F).sql
+mysqldump --single-transaction -u bestandio -p bestandio > backup.sql
+cp /var/www/bestandio/config/config.php config.php.backup
+```
+
+`config.php` contains the database password – store backups accordingly protected.
+
+Restore:
+
+```sh
+mysql -u bestandio -p bestandio < backup.sql
 ```
 
 ### Development
@@ -460,6 +554,8 @@ php tests/run.php                 # run tests
 php bin/bestandio sample-data      # sample data (30 devices), empty database only; --force overrides
 ```
 
+Sample data is loaded only with `php bin/bestandio sample-data` – never automatically and not via `/setup`. The command requires a completed setup and refuses if devices already exist (unless `--force` is given).
+
 DB tests run when `BESTANDIO_TEST_DB_HOST`, `BESTANDIO_TEST_DB_PORT`, `BESTANDIO_TEST_DB_NAME`, `BESTANDIO_TEST_DB_USER` and `BESTANDIO_TEST_DB_PASS` are set.
 
 > **Warning:** DB tests drop all tables in that database. Use a dedicated test database.
@@ -469,6 +565,8 @@ Translations are maintained only in `lang/i18n.json` (including the texts of the
 ### License
 
 MIT – see [LICENSE](LICENSE). © 2026 Halil Ayberk Bulut (ARFEP)
+
+Further documents: [CHANGELOG.md](CHANGELOG.md) (changes per version), [SECURITY.md](SECURITY.md) (report vulnerabilities privately), [CONTRIBUTING.md](CONTRIBUTING.md) (contribution rules).
 
 ### Third-party licenses
 
