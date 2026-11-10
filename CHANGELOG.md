@@ -71,7 +71,8 @@ Erste Veröffentlichung.
 
 #### Known limitations
 
-- Linux wurde noch nicht getestet (keine WSL-Distribution verfügbar). Getestet wurden: nginx 1.30 + PHP 8.3 (FastCGI) + MariaDB 10.11 unter Windows; Apache 2.4.58 + PHP 8.3 (FastCGI) + MariaDB 10.11 unter Windows; eingebauter Server von PHP 8.5 + MySQL 8.4.
+- nginx + PHP-FPM unter Linux nicht getestet; Apache unter Linux nicht getestet. Vollständig getestet (Einrichtung und Ende-zu-Ende) wurden: nginx 1.30 + PHP 8.3 (FastCGI) + MariaDB 10.11 unter Windows; Apache 2.4.58 + PHP 8.3 (FastCGI) + MariaDB 10.11 unter Windows; eingebauter Server von PHP 8.5 + MySQL 8.4.
+- Unter Linux (Ubuntu 26.04, PHP 8.5, eingebauter Server) nur ohne Datenbank geprüft: Unit-Tests, Sperre aller Pfade außerhalb von `public/`, Setup-Seite, Groß-/Kleinschreibung der Dateipfade, Zeilenenden, ausführbares `bin/bestandio`. Einrichtung über `/setup`, Ende-zu-Ende-Suite, `migrate` und `sample-data` unter Linux stehen noch aus.
 - TLS und HTTP/2 wurden lokal nicht getestet.
 - Der Windows-Scanner wurde nur auf einem einzigen, selbst gebauten PC getestet.
 - Der Etikettendruck wurde nur über PDF-Ausgabe getestet, nicht auf echten Etikettendruckern.
@@ -146,7 +147,8 @@ First release.
 
 #### Known limitations
 
-- Linux has not been tested yet (no WSL distribution available). Tested: nginx 1.30 + PHP 8.3 (FastCGI) + MariaDB 10.11 on Windows; Apache 2.4.58 + PHP 8.3 (FastCGI) + MariaDB 10.11 on Windows; PHP 8.5 built-in server + MySQL 8.4.
+- nginx + PHP-FPM on Linux not tested; Apache on Linux not tested. Fully tested (setup and end-to-end): nginx 1.30 + PHP 8.3 (FastCGI) + MariaDB 10.11 on Windows; Apache 2.4.58 + PHP 8.3 (FastCGI) + MariaDB 10.11 on Windows; PHP 8.5 built-in server + MySQL 8.4.
+- On Linux (Ubuntu 26.04, PHP 8.5, built-in server) only checked without a database: unit tests, blocking of all paths outside `public/`, setup page, case of file paths, line endings, executable `bin/bestandio`. Setup via `/setup`, the end-to-end suite, `migrate` and `sample-data` on Linux are still pending.
 - TLS and HTTP/2 have not been tested locally.
 - The Windows scanner has been tested on a single self-built PC only.
 - Label printing has been tested via PDF output only, not on physical label printers.
