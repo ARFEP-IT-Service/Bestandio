@@ -1,0 +1,52 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+// Bestandio command line: php bin/bestandio <migrate|status>
+
+if (PHP_SAPI !== 'cli') {
+    exit(1);
+}
+
+require dirname(__DIR__) . '/app/bootstrap.php';
+
+use Bestandio\Core\Config;
+use Bestandio\Core\Db;
+use Bestandio\Core\Migrator;
+
+$command = $argv[1] ?? 'help';
+
+if (!in_array($command, ['migrate', 'status'], true)) {
+    fwrite(STDOUT, "Usage: php bin/bestandio <command>\n\n  migrate   apply pending migrations\n  status    list applied and pending migrations\n");
+    exit($command === 'help' ? 0 : 2);
+}
+
+if (!Config::exists()) {
+    fwrite(STDERR, 'Configuration not found: ' . Config::path() . "\n");
+    exit(1);
+}
+
+try {
+    $pdo = Db::connect(Config::get('db', []));
+    if (!Db::versionSupported($pdo)) {
+        fwrite(STDERR, "Unsupported database version (MySQL >= 8.0 or MariaDB >= 10.6 required).\n");
+        exit(1);
+    }
+    $migrator = new Migrator($pdo);
+
+    if ($command === 'status') {
+        $applied = $migrator->applied();
+        foreach (array_keys($migrator->available()) as $version) {
+            fwrite(STDOUT, sprintf("%s  %s\n", $version, in_array($version, $applied, true) ? 'applied' : 'pending'));
+        }
+        exit(0);
+    }
+
+    $done = $migrator->migrate();
+    fwrite(STDOUT, $done ? 'Applied: ' . implode(', ', $done) . "\n" : "Nothing to migrate.\n");
+    exit(0);
+} catch (Throwable $ex) {
+    fwrite(STDERR, 'Error: ' . $ex->getMessage() . "\n");
+    exit(1);
+}

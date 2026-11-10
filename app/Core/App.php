@@ -1,0 +1,129 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Bestandio\Core;
+
+use Bestandio\Controllers\AccountController;
+use Bestandio\Controllers\AuthController;
+use Bestandio\Controllers\DeviceController;
+use Bestandio\Controllers\LangController;
+use Bestandio\Controllers\ListController;
+use Bestandio\Controllers\SetupController;
+use Bestandio\Controllers\UserController;
+use Throwable;
+
+final class App
+{
+    public const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; "
+        . "font-src 'self'; connect-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+
+    public static function router(): Router
+    {
+        $r = new Router();
+        $r->get('/', [DeviceController::class, 'home']);
+        $r->get('/setup', [SetupController::class, 'form']);
+        $r->post('/setup', [SetupController::class, 'submit']);
+        $r->get('/login', [AuthController::class, 'form']);
+        $r->post('/login', [AuthController::class, 'login']);
+        $r->post('/logout', [AuthController::class, 'logout']);
+        $r->post('/lang', [LangController::class, 'set']);
+
+        $r->get('/devices', [DeviceController::class, 'index']);
+        $r->get('/devices/export', [DeviceController::class, 'export']);
+        $r->get('/devices/new', [DeviceController::class, 'create']);
+        $r->post('/devices', [DeviceController::class, 'store']);
+        $r->get('/devices/{id}', [DeviceController::class, 'show']);
+        $r->get('/devices/{id}/edit', [DeviceController::class, 'edit']);
+        $r->post('/devices/{id}', [DeviceController::class, 'update']);
+        $r->post('/devices/{id}/retire', [DeviceController::class, 'retire']);
+
+        foreach (['categories', 'locations'] as $kind) {
+            $r->get('/' . $kind, [ListController::class, $kind]);
+            $r->post('/' . $kind, [ListController::class, $kind . 'Store']);
+            $r->post('/' . $kind . '/{id}', [ListController::class, $kind . 'Rename']);
+            $r->post('/' . $kind . '/{id}/delete', [ListController::class, $kind . 'Delete']);
+        }
+
+        $r->get('/users', [UserController::class, 'index']);
+        $r->get('/users/new', [UserController::class, 'create']);
+        $r->post('/users', [UserController::class, 'store']);
+        $r->get('/users/{id}/edit', [UserController::class, 'edit']);
+        $r->post('/users/{id}', [UserController::class, 'update']);
+
+        $r->get('/account', [AccountController::class, 'form']);
+        $r->post('/account', [AccountController::class, 'update']);
+        return $r;
+    }
+
+    public static function securityHeaders(): void
+    {
+        header('Content-Security-Policy: ' . self::CSP);
+        header('X-Content-Type-Options: nosniff');
+        header('Referrer-Policy: same-origin');
+        header('X-Frame-Options: DENY');
+        header('Cross-Origin-Opener-Policy: same-origin');
+        header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+        header('Cache-Control: no-store');
+        if (Request::isHttps()) {
+            header('Strict-Transport-Security: max-age=31536000');
+        }
+    }
+
+    public static function run(): void
+    {
+        ini_set('display_errors', '0');
+        $tz = Config::get('app.timezone');
+        if (is_string($tz) && in_array($tz, timezone_identifiers_list(), true)) {
+            date_default_timezone_set($tz);
+        }
+        self::securityHeaders();
+
+        try {
+            Session::start();
+            I18n::init();
+            $path = Request::path();
+            $method = Request::method();
+
+            if (!Config::exists() && $path !== '/setup' && $path !== '/lang') {
+                self::redirect('/setup');
+                return;
+            }
+            if ($method === 'POST' && !Csrf::valid($_POST['_csrf'] ?? null)) {
+                throw new HttpException(403, 'error.csrf');
+            }
+
+            [$handler, $params] = self::router()->match($method, $path);
+            [$class, $action] = $handler;
+            $out = (new $class())->$action(...array_map('intval', $params));
+            if (is_string($out)) {
+                header('Content-Type: text/html; charset=utf-8');
+                echo $out;
+            }
+        } catch (Halt) {
+            return;
+        } catch (HttpException $ex) {
+            self::error($ex->status, $ex->messageKey);
+        } catch (Throwable $ex) {
+            error_log('Bestandio: ' . $ex::class . ': ' . $ex->getMessage() . ' in '
+                . $ex->getFile() . ':' . $ex->getLine());
+            self::error(500, 'error.500');
+        }
+    }
+
+    public static function redirect(string $path, array $query = []): void
+    {
+        header('Location: ' . url($path, $query), true, 302);
+    }
+
+    private static function error(int $status, string $key): void
+    {
+        http_response_code($status);
+        header('Content-Type: text/html; charset=utf-8');
+        try {
+            echo View::render('error', ['status' => $status, 'messageKey' => $key, 'title' => t('error.title')]);
+        } catch (Throwable) {
+            echo 'Error ' . $status;
+        }
+    }
+}
