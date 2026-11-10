@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"strings"
 )
 
@@ -137,4 +138,48 @@ func clean(v string) string {
 		return ""
 	}
 	return strings.TrimSpace(v)
+}
+
+// systemUUID returns the SMBIOS type 1 UUID (offset 8, 16 bytes) in canonical upper-case form.
+// Since SMBIOS 2.6 the first three fields are little-endian. Placeholders give "".
+func systemUUID(structs []smbiosStruct, major, minor byte) string {
+	for _, s := range structs {
+		if s.Type != 1 || len(s.Formatted) < 24 {
+			continue
+		}
+		b := s.Formatted[8:24]
+		swap := major > 2 || (major == 2 && minor >= 6)
+		return cleanUUID(formatUUID(b, swap))
+	}
+	return ""
+}
+
+func formatUUID(b []byte, swap bool) string {
+	o := make([]byte, 16)
+	copy(o, b)
+	if swap {
+		o[0], o[1], o[2], o[3] = b[3], b[2], b[1], b[0]
+		o[4], o[5] = b[5], b[4]
+		o[6], o[7] = b[7], b[6]
+	}
+	return fmt.Sprintf("%X-%X-%X-%X-%X", o[0:4], o[4:6], o[6:8], o[8:10], o[10:16])
+}
+
+var uuidPlaceholders = map[string]bool{
+	"03000200-0400-0500-0006-000700080009": true,
+	"00020003-0004-0005-0006-000700080009": true,
+	"12345678-1234-5678-90AB-CDDEEFAABBCC": true,
+}
+
+// cleanUUID upper-cases a UUID and returns "" for placeholders (all zeros, all F, known dummies).
+func cleanUUID(u string) string {
+	u = strings.ToUpper(strings.TrimSpace(u))
+	if len(u) != 36 || uuidPlaceholders[u] {
+		return ""
+	}
+	hex := strings.ReplaceAll(u, "-", "")
+	if strings.Count(hex, hex[:1]) == len(hex) {
+		return ""
+	}
+	return u
 }

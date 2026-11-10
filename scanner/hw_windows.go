@@ -35,18 +35,18 @@ const (
 	storageDeviceSeekPenalty    = 7
 )
 
-func readSMBIOS() []smbiosStruct {
+func readSMBIOS() (structs []smbiosStruct, major, minor byte) {
 	const rsmb = 'R'<<24 | 'S'<<16 | 'M'<<8 | 'B'
 	n, _, _ := procGetSystemFirmwareTable.Call(rsmb, 0, 0, 0)
 	if n == 0 {
-		return nil
+		return nil, 0, 0
 	}
 	buf := make([]byte, n)
 	got, _, _ := procGetSystemFirmwareTable.Call(rsmb, 0, uintptr(unsafe.Pointer(&buf[0])), n)
 	if got == 0 || got > n {
-		return nil
+		return nil, 0, 0
 	}
-	return parseSMBIOS(buf[:got])
+	return parseSMBIOS(buf[:got]), buf[1], buf[2]
 }
 
 // regString reads a string value; view64 selects the 64-bit registry view.
@@ -191,7 +191,7 @@ func describeDisk(h syscall.Handle) (Disk, bool) {
 
 // collectHardware gathers everything except software.
 func collectHardware() (Hardware, *OS) {
-	structs := readSMBIOS()
+	structs, major, minor := readSMBIOS()
 	manufacturer, product, version, serial := systemInfo(structs)
 	if isPlaceholder(manufacturer) {
 		manufacturer = regString(syscall.HKEY_LOCAL_MACHINE, `HARDWARE\DESCRIPTION\System\BIOS`, "SystemManufacturer")
@@ -212,6 +212,7 @@ func collectHardware() (Hardware, *OS) {
 		Manufacturer: manufacturer,
 		Model:        model,
 		SerialNumber: serial,
+		UUID:         systemUUID(structs, major, minor),
 		CPU:          cpuName(),
 		RAMMB:        ramMB(),
 		Disks:        disks(),

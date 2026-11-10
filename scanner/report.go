@@ -24,6 +24,7 @@ type Hardware struct {
 	Manufacturer string `json:"manufacturer"`
 	Model        string `json:"model,omitempty"`
 	SerialNumber string `json:"serial_number"`
+	UUID         string `json:"uuid,omitempty"` // SMBIOS system UUID; placeholders are left out
 	CPU          string `json:"cpu,omitempty"`
 	RAMMB        int64  `json:"ram_mb,omitempty"`
 	Disks        []Disk `json:"disks,omitempty"`
@@ -81,6 +82,7 @@ func newReport(now time.Time, hw Hardware, os *OS, sw []Software, secrets ...str
 	hw.Manufacturer = text(clean(hw.Manufacturer), maxManufacturer)
 	hw.Model = text(clean(hw.Model), maxModel)
 	hw.SerialNumber = text(clean(hw.SerialNumber), maxSerial)
+	hw.UUID = cleanUUID(hw.UUID)
 	hw.CPU = text(hw.CPU, maxCPU)
 	if len(hw.Disks) > maxDisks {
 		hw.Disks = hw.Disks[:maxDisks]

@@ -112,7 +112,7 @@ func TestReportFormat(t *testing.T) {
 		t.Fatalf("vendor not cut: %d", len(v))
 	}
 	// Only fields of the format, nothing personal.
-	allowed := regexp.MustCompile(`^"(format|version|scanned_at|hardware|os|software|manufacturer|model|serial_number|cpu|ram_mb|disks|type|size_gb|name|vendor)"$`)
+	allowed := regexp.MustCompile(`^"(format|version|scanned_at|hardware|os|software|manufacturer|model|serial_number|uuid|cpu|ram_mb|disks|type|size_gb|name|vendor)"$`)
 	for _, k := range regexp.MustCompile(`"[a-z_]+":`).FindAll(data, -1) {
 		if !allowed.Match(bytes.TrimSuffix(k, []byte(":"))) {
 			t.Errorf("unexpected key %s", k)
@@ -248,5 +248,32 @@ func TestUserAndComputerNamesAreRedacted(t *testing.T) {
 	}
 	if !strings.Contains(string(data), "Roblox Studio for [user]") {
 		t.Fatalf("redaction marker missing: %s", data)
+	}
+}
+
+func TestSystemUUID(t *testing.T) {
+	// Raw SMBIOS bytes of 4C4C4544-0042-3510-8051-B4C04F4A3533 (first three fields little-endian).
+	raw := []byte{0x44, 0x45, 0x4C, 0x4C, 0x42, 0x00, 0x10, 0x35, 0x80, 0x51, 0xB4, 0xC0, 0x4F, 0x4A, 0x35, 0x33}
+	formatted := append([]byte{1, 2, 0, 3}, raw...)
+	sys := structure(1, formatted, "Dell Inc.", "Latitude 5440", "H7K2LM3")
+	s := parseSMBIOS(smbiosTable(sys, structure(127, nil)))
+	if got := systemUUID(s, 3, 4); got != "4C4C4544-0042-3510-8051-B4C04F4A3533" {
+		t.Fatalf("uuid %q", got)
+	}
+	if got := systemUUID(s, 2, 4); got != "44454C4C-4200-1035-8051-B4C04F4A3533" {
+		t.Fatalf("uuid before SMBIOS 2.6 %q", got)
+	}
+	for _, p := range []string{"00000000-0000-0000-0000-000000000000", "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF",
+		"03000200-0400-0500-0006-000700080009", "00020003-0004-0005-0006-000700080009", "x"} {
+		if cleanUUID(p) != "" {
+			t.Errorf("placeholder kept: %s", p)
+		}
+	}
+	if cleanUUID("4c4c4544-0042-3510-8051-b4c04f4a3533") != "4C4C4544-0042-3510-8051-B4C04F4A3533" {
+		t.Fatal("upper case")
+	}
+	r := newReport(time.Now(), Hardware{Manufacturer: "Dell", UUID: "00000000-0000-0000-0000-000000000000"}, nil, nil)
+	if b, _ := r.marshal(false); bytes.Contains(b, []byte(`"uuid"`)) {
+		t.Fatal("placeholder uuid must be omitted")
 	}
 }
