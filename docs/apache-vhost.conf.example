@@ -1,0 +1,45 @@
+# Bestandio - Apache VirtualHost example
+#
+# Requires: mod_rewrite, mod_ssl, PHP (mod_php or PHP-FPM via proxy_fcgi).
+# Adjust ServerName, paths and certificate files.
+# Only the public/ directory is exposed as DocumentRoot.
+# AllowOverride All lets public/.htaccess handle the rewrite rules.
+# TLS certificates e.g. via Let's Encrypt:  certbot --apache -d inventory.example.com
+
+# Redirect HTTP to HTTPS
+<VirtualHost *:80>
+    ServerName inventory.example.com
+    Redirect permanent / https://inventory.example.com/
+</VirtualHost>
+
+<VirtualHost *:443>
+    ServerName inventory.example.com
+    DocumentRoot /var/www/bestandio/public
+
+    SSLEngine on
+    SSLCertificateFile    /etc/letsencrypt/live/inventory.example.com/fullchain.pem
+    SSLCertificateKeyFile /etc/letsencrypt/live/inventory.example.com/privkey.pem
+
+    <Directory /var/www/bestandio/public>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+        DirectoryIndex index.php
+    </Directory>
+
+    # Alternative without .htaccess: set "AllowOverride None" above and
+    # use these rules instead (inside the <Directory> block):
+    #
+    #   RewriteEngine On
+    #   RewriteCond %{REQUEST_FILENAME} !-f
+    #   RewriteCond %{REQUEST_FILENAME} !-d
+    #   RewriteRule ^ index.php [QSA,L]
+
+    # Optional: PHP-FPM instead of mod_php
+    # <FilesMatch "\.php$">
+    #     SetHandler "proxy:unix:/run/php/php8.2-fpm.sock|fcgi://localhost"
+    # </FilesMatch>
+
+    ErrorLog  ${APACHE_LOG_DIR}/bestandio_error.log
+    CustomLog ${APACHE_LOG_DIR}/bestandio_access.log combined
+</VirtualHost>

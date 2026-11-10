@@ -1,0 +1,61 @@
+# Bestandio - nginx server block example (nginx + PHP-FPM)
+#
+# Adjust server_name, paths, certificate files and the PHP-FPM socket.
+# Only the public/ directory is exposed as document root.
+# TLS certificates e.g. via Let's Encrypt:  certbot --nginx -d inventory.example.com
+
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    listen [::]:80;
+    server_name inventory.example.com;
+
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name inventory.example.com;
+
+    root /var/www/bestandio/public;
+    index index.php;
+
+    ssl_certificate     /etc/letsencrypt/live/inventory.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/inventory.example.com/privkey.pem;
+
+    charset utf-8;
+    client_max_body_size 8m;
+
+    # Block hidden files (.htaccess, .git, ...)
+    location ~ /\. {
+        deny all;
+    }
+
+    # Static assets
+    location /assets/ {
+        try_files $uri =404;
+        expires 7d;
+        access_log off;
+    }
+
+    # Everything else goes to the front controller
+    location / {
+        try_files $uri /index.php$is_args$args;
+    }
+
+    # Only the front controller is executed
+    location = /index.php {
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        fastcgi_param DOCUMENT_ROOT   $realpath_root;
+        fastcgi_param HTTPS on;
+        fastcgi_pass unix:/run/php/php8.2-fpm.sock;
+    }
+
+    # Any other .php file is not served
+    location ~ \.php$ {
+        return 404;
+    }
+}
