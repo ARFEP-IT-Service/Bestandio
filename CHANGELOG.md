@@ -12,6 +12,13 @@ Das Format basiert auf [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
 
 ### [Unreleased]
 
+#### Hinzugefügt
+
+- Handy wie eine App: feste Leiste unten (Geräte · Scan · Neu · Mehr) mit großem runden Scan-Knopf, „Neu“ nur für Bearbeiter/Admin, „Mehr“ mit den übrigen Seiten, Sprache und Abmelden; Kopfzeile mit Logo und Seitentitel; Abstand zur iPhone-Home-Leiste; Tippflächen ab 44 px, Eingabeschrift ab 16 px. Die PC-Ansicht bleibt unverändert.
+- Geräteseite auf dem Handy in Abschnitten: Übersicht, Hardware, Programme, Verlauf.
+- Installierbar als App (PWA): Manifest, Symbole 192/512 und maskable, Apple-Symbol. Der Service Worker speichert nur statische Dateien unter `assets/`, nie Seiten oder Gerätedaten. CSP nur um `worker-src 'self'` und `manifest-src 'self'` erweitert. Installation braucht HTTPS.
+- Etiketten-Startplatz: Beim Druck auf A4-Bogen zeigt ein Bild des Bogens (nach eingestelltem Raster) die Felder; Antippen/Klicken/Enter wählt den Startplatz, Felder davor sind grau durchgestrichen. Zusätzlich das Feld „Start bei Etikett Nr.“. Gilt nur für den jeweiligen Druck.
+
 ### [0.1.0] - 2026-11-10
 
 Erste Veröffentlichung.
@@ -87,6 +94,13 @@ All notable changes to Bestandio are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/). The current version is stored in the file `VERSION` in the repository root; the web panel shows it in the footer, the scanner prints it with `--version`.
 
 ### [Unreleased]
+
+#### Added
+
+- Phone app layout: fixed bottom bar (Devices · Scan · New · More) with a large round scan button, "New" for editors/admins only, "More" with the other pages, language and sign-out; header with logo and page title; safe-area spacing for the iPhone home indicator; tap targets of at least 44 px, form text of at least 16 px. The desktop view is unchanged.
+- Device page on phones in sections: overview, hardware, programs, history.
+- Installable as an app (PWA): manifest, icons 192/512 and maskable, Apple touch icon. The service worker caches only static files below `assets/`, never pages or device data. CSP extended only by `worker-src 'self'` and `manifest-src 'self'`. Installing requires HTTPS.
+- Label start position: when printing on an A4 sheet, a picture of the sheet (from the configured grid) shows the positions; tap/click/Enter selects the start position, positions before it are greyed out and struck through. Plus a "Start at label no." field. Applies to the current print only.
 
 ### [0.1.0] - 2026-11-10
 

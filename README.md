@@ -221,6 +221,10 @@ server {
 
 HTTPS ist Pflicht. Die Kamera zum Scannen funktioniert nur über HTTPS (oder auf `localhost`), da Browser den Kamerazugriff nur in einem Secure Context erlauben. Die `Permissions-Policy` erlaubt die Kamera nur für den eigenen Origin. Empfohlen: Let's Encrypt mit certbot (`certbot --apache` bzw. `certbot --nginx`). Unter HTTPS erhält das Session-Cookie automatisch das `Secure`-Flag.
 
+### Auf dem Handy wie eine App
+
+Auf schmalen Bildschirmen hat Bestandio eine feste Leiste unten (Geräte · Scan · Neu · Mehr). Das Webpanel lässt sich als App installieren (Android/Chrome: „App installieren“, iPhone/Safari: Teilen → „Zum Home-Bildschirm“). **Die Installation braucht HTTPS.** Der Service Worker (`public/sw.js`) speichert nur statische Dateien unter `assets/` (CSS, JS, Symbole). Seiten, Gerätedaten und alles hinter der Anmeldung kommen immer aus dem Netz und werden nie zwischengespeichert. Die App braucht also weiterhin eine Verbindung zum Server.
+
 ### Kommandozeile
 
 ```sh
@@ -506,6 +510,10 @@ server {
 ### HTTPS
 
 HTTPS is required. The camera for scanning only works over HTTPS (or on `localhost`), since browsers only allow camera access in a secure context. The `Permissions-Policy` allows the camera for the own origin only. Recommended: Let's Encrypt with certbot (`certbot --apache` or `certbot --nginx`). Under HTTPS the session cookie automatically gets the `Secure` flag.
+
+### On the phone like an app
+
+On narrow screens Bestandio has a fixed bar at the bottom (Devices · Scan · New · More). The web panel can be installed as an app (Android/Chrome: "Install app", iPhone/Safari: Share → "Add to Home Screen"). **Installing requires HTTPS.** The service worker (`public/sw.js`) caches only static files below `assets/` (CSS, JS, icons). Pages, device data and everything behind the login always come from the network and are never cached. The app therefore still needs a connection to the server.
 
 ### Command line
 
