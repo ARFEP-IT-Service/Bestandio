@@ -57,7 +57,7 @@ Dieses Dokument beschreibt das JSON-Format `bestandio-scan` (Version 1), mit dem
 | `scanned_at` | String | ja | ISO-8601-Datum/Uhrzeit mit Zeitzone, z. B. `2026-11-10T19:30:00Z` oder `2026-11-10T20:30:00+01:00`; höchstens 24 Stunden in der Zukunft |
 | `hardware` | Objekt | ja | |
 | `hardware.manufacturer` | String | ja | 1–100 Zeichen |
-| `hardware.serial_number` | String | ja | 1–100 Zeichen |
+| `hardware.serial_number` | String | ja (Feld) | 0–100 Zeichen. Leer erlaubt, wenn die Firmware nur Platzhalter liefert („To be filled by O.E.M.“ usw.); solche Geräte werden nie zugeordnet, sondern immer neu angelegt. |
 | `hardware.model` | String | nein | ≤ 100 Zeichen |
 | `hardware.cpu` | String | nein | ≤ 190 Zeichen |
 | `hardware.ram_mb` | Integer | nein | 1–16777216 |
@@ -162,7 +162,7 @@ This document describes the JSON format `bestandio-scan` (version 1) used to imp
 | `scanned_at` | string | yes | ISO 8601 date-time with time zone, e.g. `2026-11-10T19:30:00Z` or `2026-11-10T20:30:00+01:00`; at most 24 hours in the future |
 | `hardware` | object | yes | |
 | `hardware.manufacturer` | string | yes | 1–100 characters |
-| `hardware.serial_number` | string | yes | 1–100 characters |
+| `hardware.serial_number` | string | yes (key) | 0–100 characters. Empty is allowed when the firmware only has placeholders ("To be filled by O.E.M." etc.); such devices are never matched and always created as new devices. |
 | `hardware.model` | string | no | ≤ 100 characters |
 | `hardware.cpu` | string | no | ≤ 190 characters |
 | `hardware.ram_mb` | integer | no | 1–16777216 |

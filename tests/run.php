@@ -85,7 +85,7 @@ $test('i18n: every literal key used in code exists', function () use ($assert, $
     $t = I18n::texts()['de'];
     $missing = [];
     foreach ($phpFiles(BESTANDIO_ROOT . '/app') as $file) {
-        preg_match_all("/(?:\\bt\\(|flash\\('\\w+', |error\\(\\d+, |HttpException\\(\\d+, )'([a-z_]+\\.[a-z0-9_.]+)'/", (string) file_get_contents($file), $m);
+        preg_match_all("/(?:\\bt\\(|flash\\('\\w+', |error\\(\\d+, |HttpException\\(\\d+, )'([a-z_]+\\.[a-z0-9_.]*[a-z0-9_])'/", (string) file_get_contents($file), $m);
         foreach ($m[1] as $key) {
             if (!isset($t[$key])) {
                 $missing[] = $key;
@@ -247,6 +247,25 @@ $test('Session expires after 2 h idle and 12 h absolute', function () use ($asse
     $_SESSION = [];
 });
 
+$test('Label templates: sizes, dpi and QR module rounding to whole printer dots', function () use ($assert) {
+    $base = ['label_template' => 'custom', 'single_width' => 62.0, 'single_height' => 29.0, 'dpi' => 203];
+    $assert(Settings::singleSize(['label_template' => 'dymo_54x101'] + $base) === [101.0, 54.0, 300]);
+    $assert(Settings::singleSize(['label_template' => 'zebra_103x199'] + $base) === [103.0, 199.0, 203]);
+    $assert(Settings::singleSize($base) === [62.0, 29.0, 203]);
+    foreach ([[101.0, 54.0, 300, false], [103.0, 199.0, 203, true], [62.0, 29.0, 203, false], [70.0, 36.0, 600, false]] as [$w, $h, $dpi, $vertical]) {
+        $l = Bestandio\Controllers\LabelController::layout($w, $h, $dpi);
+        $dotsPerModule = $l['qr'] / 29 * $dpi / 25.4;
+        $assert(abs($dotsPerModule - round($dotsPerModule)) < 1e-9 && $dotsPerModule >= 1, "whole dots for {$w}x{$h}@{$dpi}: $dotsPerModule");
+        $assert($l['vertical'] === $vertical, "orientation {$w}x{$h}");
+        $assert($l['qr'] <= min($w, $h), 'QR fits');
+    }
+    $defaults = array_map(static fn ($f) => (string) $f[0], Settings::FIELDS);
+    [, $err] = Settings::validate(['label_template' => 'unknown', 'dpi' => '50'] + $defaults);
+    $assert(isset($err['label_template'], $err['dpi']), json_encode($err));
+    [, $err] = Settings::validate(['label_template' => 'zebra_103x199', 'dpi' => '300'] + $defaults);
+    $assert($err === [], json_encode($err));
+});
+
 $test('CSV separator follows the UI language', function () use ($assert) {
     $assert(Csv::separatorFor('de') === ';' && Csv::separatorFor('tr') === ';' && Csv::separatorFor('en') === ',');
     $assert(Csv::line(['a', 'b'], ',') === "\"a\",\"b\"\r\n");
@@ -255,7 +274,7 @@ $test('CSV separator follows the UI language', function () use ($assert) {
 $test('Label settings: validation and label size', function () use ($assert) {
     [$v, $err] = Settings::validate(['company_name' => 'ARFEP', 'sheet_cols' => '3', 'sheet_rows' => '8', 'sheet_margin_top' => '4,5',
         'sheet_margin_bottom' => '4.5', 'sheet_margin_left' => '0', 'sheet_margin_right' => '0', 'sheet_gap_x' => '0', 'sheet_gap_y' => '0',
-        'single_width' => '62', 'single_height' => '29']);
+        'single_width' => '62', 'single_height' => '29', 'label_template' => 'custom', 'dpi' => '203']);
     $assert($err === [], 'valid settings: ' . json_encode($err));
     $assert(Settings::labelSize($v) === [70.0, 36.0]);
     [, $err] = Settings::validate(['sheet_cols' => '2.5', 'sheet_rows' => '99'] + $v);
@@ -285,6 +304,9 @@ $test('Import: valid data, unknown fields ignored, no user or host name kept', f
     $assert(count($d['software']) === 2 && $d['software'][1] === ['name' => 'Firefox', 'version' => '', 'vendor' => '']);
     $flat = json_encode($d);
     $assert(!str_contains($flat, 'PC-BUCHHALTUNG') && !str_contains($flat, 'mmuster'), 'personal fields dropped');
+    // Empty serial number (firmware placeholder) is accepted but never matched.
+    [$d3, $err3] = ScanImport::parse(json_encode(array_replace_recursive($validScan, ['hardware' => ['serial_number' => '']])));
+    $assert($err3 === [] && $d3['serial_no'] === '', 'empty serial accepted');
     // BOM tolerated.
     [$d2] = ScanImport::parse("\xEF\xBB\xBF" . json_encode($validScan));
     $assert($d2 !== null);
@@ -298,7 +320,8 @@ $test('Import: invalid input is rejected with the expected error', function () u
         'wrong format'   => [json_encode(['format' => 'other'] + $validScan), 'import.error.format'],
         'too large'      => [str_repeat(' ', ScanImport::MAX_BYTES + 1), 'import.error.too_large'],
         'empty'          => ['  ', 'import.error.empty'],
-        'no serial'      => [json_encode(array_replace_recursive($validScan, ['hardware' => ['serial_number' => '  ']])), 'import.error.required'],
+        'no serial key'  => [json_encode(['hardware' => array_diff_key($validScan['hardware'], ['serial_number' => 1])] + $validScan), 'import.error.required'],
+        'serial number'  => [json_encode(array_replace_recursive($validScan, ['hardware' => ['serial_number' => 123]])), 'import.error.required'],
         'ram as string'  => [json_encode(array_replace_recursive($validScan, ['hardware' => ['ram_mb' => '16 GB']])), 'import.error.invalid'],
         'bad disk type'  => [json_encode(array_replace_recursive($validScan, ['hardware' => ['disks' => [['type' => 'floppy', 'size_gb' => 1]]]])), 'import.error.invalid'],
         'future date'    => [json_encode(['scanned_at' => '2099-01-01T00:00:00Z'] + $validScan), 'import.error.date'],

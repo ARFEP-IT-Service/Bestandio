@@ -163,6 +163,9 @@ final class Device
     /** Devices matching manufacturer + serial number (case-insensitive, trimmed). */
     public static function findByManufacturerSerial(string $manufacturer, string $serial): array
     {
+        if (trim($serial) === '') {
+            return [];
+        }
         return Db::all(
             self::SELECT . ' WHERE LOWER(TRIM(d.manufacturer)) = LOWER(?) AND LOWER(TRIM(d.serial_no)) = LOWER(?) ORDER BY d.inventory_no',
             [trim($manufacturer), trim($serial)]

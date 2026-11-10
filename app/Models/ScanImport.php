@@ -94,7 +94,12 @@ final class ScanImport
         }
         $this->countUnknown($hw, self::HARDWARE_KEYS);
         $out['manufacturer'] = $this->string($hw, 'manufacturer', 'hardware.manufacturer', 100, true);
-        $out['serial_no'] = $this->string($hw, 'serial_number', 'hardware.serial_number', 100, true);
+        // The key is required; the value may be empty when the firmware has no real serial number.
+        // Such devices are never matched and are always created as new devices.
+        if (!property_exists($hw, 'serial_number') || !is_string($hw->serial_number)) {
+            $this->error('import.error.required', ['field' => 'hardware.serial_number']);
+        }
+        $out['serial_no'] = $this->string($hw, 'serial_number', 'hardware.serial_number', 100, false);
         foreach (['model' => 100, 'cpu' => 190] as $k => $max) {
             if (property_exists($hw, $k)) {
                 $out[$k] = $this->string($hw, $k, 'hardware.' . $k, $max, false);

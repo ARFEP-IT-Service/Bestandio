@@ -1,5 +1,7 @@
 <?php
-$err = static fn (string $f): string => isset($errors[$f]) ? t($errors[$f]) : '';
+use Bestandio\Models\Settings;
+
+$err =static fn (string $f): string => isset($errors[$f]) ? t($errors[$f]) : '';
 $num = static function (string $name, string $step) use ($values, $err): array {
     return ['name' => $name, 'step' => $step, 'value' => $values[$name], 'error' => $err($name)];
 };
@@ -9,7 +11,7 @@ $sheet = [
     $num('sheet_margin_left', '0.1'), $num('sheet_margin_right', '0.1'),
     $num('sheet_gap_x', '0.1'), $num('sheet_gap_y', '0.1'),
 ];
-$single = [$num('single_width', '0.1'), $num('single_height', '0.1')];
+$single = [$num('single_width', '0.1'), $num('single_height', '0.1'), $num('dpi', '1')];
 ?>
 <div class="pagehead">
   <h1><?= e(t('settings.title')) ?></h1>
@@ -46,6 +48,13 @@ $single = [$num('single_width', '0.1'), $num('single_height', '0.1')];
 
   <fieldset>
     <legend><?= e(t('settings.single')) ?></legend>
+    <label for="label_template"><?= e(t('settings.label_template')) ?></label>
+    <select id="label_template" name="label_template">
+      <?php foreach (array_keys(Settings::TEMPLATES) as $tpl): ?>
+      <option value="<?= e($tpl) ?>"<?= e($values['label_template'] === $tpl ? ' selected' : '') ?>><?= e(t('settings.template.' . $tpl)) ?></option>
+      <?php endforeach; ?>
+    </select>
+    <p class="hint"><?= e(t('settings.template_hint')) ?></p>
     <div class="grid">
       <?php foreach ($single as $f): ?>
       <div class="field">
