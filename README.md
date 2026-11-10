@@ -215,6 +215,7 @@ mysqldump --single-transaction -u bestandio -p bestandio > bestandio-$(date +%F)
 ```sh
 php -S localhost:8000 -t public   # lokaler Entwicklungsserver
 php tests/run.php                 # Tests ausführen
+mysql --default-character-set=utf8mb4 bestandio < docs/sample-data.sql   # Beispieldaten (30 Geräte) nach dem Setup
 ```
 
 DB-Tests laufen, wenn `BESTANDIO_TEST_DB_HOST`, `BESTANDIO_TEST_DB_PORT`, `BESTANDIO_TEST_DB_NAME`, `BESTANDIO_TEST_DB_USER` und `BESTANDIO_TEST_DB_PASS` gesetzt sind.
@@ -446,6 +447,7 @@ mysqldump --single-transaction -u bestandio -p bestandio > bestandio-$(date +%F)
 ```sh
 php -S localhost:8000 -t public   # local development server
 php tests/run.php                 # run tests
+mysql --default-character-set=utf8mb4 bestandio < docs/sample-data.sql   # sample data (30 devices) after setup
 ```
 
 DB tests run when `BESTANDIO_TEST_DB_HOST`, `BESTANDIO_TEST_DB_PORT`, `BESTANDIO_TEST_DB_NAME`, `BESTANDIO_TEST_DB_USER` and `BESTANDIO_TEST_DB_PASS` are set.
